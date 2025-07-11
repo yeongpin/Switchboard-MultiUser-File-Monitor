@@ -5,8 +5,7 @@ echo ========================================
 
 REM Clean previous builds
 if exist "build" rmdir /s /q "build"
-if exist "dist" rmdir /s /q "dist"
-if exist "*.spec" del /q "*.spec"
+if exist "*.spec" del /q "*.spec"image.png
 
 REM Get version
 for /f "delims=" %%i in ('python -c "import sys; sys.path.insert(0, 'src'); from src import __version__; print(__version__)"') do set VERSION=%%i
@@ -24,6 +23,7 @@ python -m PyInstaller ^
     --windowed ^
     --name "temp_build" ^
     --add-data "src/ui/images;ui/images" ^
+    --add-data "src/external/sync_sandbox.bat;external" ^
     --distpath "dist" ^
     --workpath "build" ^
     --clean ^

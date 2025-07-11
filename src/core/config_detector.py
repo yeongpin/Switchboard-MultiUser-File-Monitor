@@ -144,7 +144,7 @@ class ConfigDetector:
             
             # Try to import config module
             try:
-                from config import CONFIG_MGR, SETTINGS
+                from config import CONFIG_MGR, SETTINGS # type: ignore
                 self.logger.info("Successfully imported Switchboard config")
                 return CONFIG_MGR, SETTINGS
             except ImportError:

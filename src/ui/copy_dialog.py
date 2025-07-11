@@ -378,6 +378,11 @@ class CopyDialog(QDialog):
             if len(failed) > 10:
                 self.log_message(f"  ... and {len(failed) - 10} more failed operations")
         
+        # If copy was successful, proceed with additional steps
+        if successful:
+            self.log_message("Starting additional copy to Sandbox directory...")
+            self._copy_to_sandbox_and_sync(successful)
+        
         # Show summary dialog
         if failed:
             QMessageBox.warning(
@@ -393,6 +398,130 @@ class CopyDialog(QDialog):
                 f"All files copied successfully!\n\n"
                 f"Total files: {len(successful)}"
             )
+    
+    def _copy_to_sandbox_and_sync(self, successful_operations: List[CopyOperation]):
+        """Copy files to Sandbox directory and execute sync_sandbox.bat"""
+        import subprocess
+        import shutil
+        import sys
+        import tempfile
+        
+        try:
+            # Get project root directory (parent of Content directory)
+            destination_path = Path(self.dest_edit.text())
+            project_root = destination_path.parent
+            sandbox_dir = project_root / "Sandbox"
+            
+            self.log_message(f"Project root: {project_root}")
+            self.log_message(f"Sandbox directory: {sandbox_dir}")
+            
+            # Clear existing Sandbox directory if it exists
+            if sandbox_dir.exists():
+                self.log_message("Clearing existing Sandbox directory...")
+                try:
+                    shutil.rmtree(sandbox_dir)
+                    self.log_message("Successfully cleared existing Sandbox directory")
+                except Exception as e:
+                    self.log_message(f"Warning: Could not fully clear Sandbox directory: {e}")
+                    # Continue anyway - we'll try to overwrite files
+            
+            # Create Sandbox directory
+            sandbox_dir.mkdir(parents=True, exist_ok=True)
+            self.log_message(f"Sandbox directory created: {sandbox_dir}")
+            
+            # Copy files to Sandbox directory
+            sandbox_copy_count = 0
+            for operation in successful_operations:
+                try:
+                    # Get relative path from Content directory
+                    relative_path = operation.destination_path.relative_to(destination_path)
+                    sandbox_dest = sandbox_dir / relative_path
+                    
+                    # Create parent directories if needed
+                    sandbox_dest.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Copy the file
+                    shutil.copy2(operation.destination_path, sandbox_dest)
+                    sandbox_copy_count += 1
+                    
+                    self.log_message(f"Copied to Sandbox: {relative_path}")
+                    
+                except Exception as e:
+                    self.log_message(f"Failed to copy to Sandbox: {operation.destination_path.name} - {e}")
+            
+            self.log_message(f"Successfully copied {sandbox_copy_count} files to Sandbox")
+            
+            # Get sync script from application resources
+            sync_script_path = self._get_sync_script_path()
+            
+            if sync_script_path and sync_script_path.exists():
+                self.log_message(f"Found sync script: {sync_script_path}")
+                
+                # Copy sync script to project root if it's from resources
+                project_sync_script = project_root / "sync_sandbox.bat"
+                if sync_script_path != project_sync_script:
+                    shutil.copy2(sync_script_path, project_sync_script)
+                    self.log_message(f"Copied sync script to project root")
+                    sync_script_to_execute = project_sync_script
+                else:
+                    sync_script_to_execute = sync_script_path
+                
+                try:
+                    # Change to project root directory for script execution
+                    result = subprocess.run(
+                        str(sync_script_to_execute),
+                        cwd=str(project_root),
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=300  # 5 minute timeout
+                    )
+                    
+                    if result.returncode == 0:
+                        self.log_message("Sync script executed successfully!")
+                        if result.stdout:
+                            # Split output into lines and log each line
+                            for line in result.stdout.strip().split('\n'):
+                                if line.strip():
+                                    self.log_message(f"Script: {line.strip()}")
+                    else:
+                        self.log_message(f"Sync script failed with return code: {result.returncode}")
+                        if result.stderr:
+                            for line in result.stderr.strip().split('\n'):
+                                if line.strip():
+                                    self.log_message(f"Script Error: {line.strip()}")
+                    
+                except subprocess.TimeoutExpired:
+                    self.log_message("Sync script timed out after 5 minutes")
+                except Exception as e:
+                    self.log_message(f"Failed to execute sync script: {e}")
+            else:
+                self.log_message("Sync script not found in application resources")
+                
+        except Exception as e:
+            self.log_message(f"Error in sandbox copy and sync: {e}")
+            self.logger.error(f"Error in sandbox copy and sync: {e}")
+    
+    def _get_sync_script_path(self) -> Optional[Path]:
+        """Get the path to sync_sandbox.bat from application resources"""
+        import sys
+        
+        # Check if running as PyInstaller bundle
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            # Running as PyInstaller bundle - get from temporary directory
+            bundle_dir = Path(sys._MEIPASS)
+            sync_script = bundle_dir / "external" / "sync_sandbox.bat"
+            self.log_message(f"Looking for script in bundle: {sync_script}")
+            return sync_script if sync_script.exists() else None
+        else:
+            # Running as Python script - get from source directory
+            # Get the directory containing this file
+            current_dir = Path(__file__).parent
+            # Go up to src directory, then to external
+            src_dir = current_dir.parent
+            sync_script = src_dir / "external" / "sync_sandbox.bat"
+            self.log_message(f"Looking for script in source: {sync_script}")
+            return sync_script if sync_script.exists() else None
     
     def on_copy_error(self, error_message: str):
         """Handle copy error"""

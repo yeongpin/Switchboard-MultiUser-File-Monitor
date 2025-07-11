@@ -37,7 +37,7 @@ except ImportError:
         from __init__ import __version__
     except ImportError:
         # Fallback version
-        __version__ = "1.0.6"
+        __version__ = "1.0.9"
 
 
 class ConfigDetectorWorker(QThread):
