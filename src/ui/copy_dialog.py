@@ -150,6 +150,12 @@ class CopyDialog(QDialog):
         self.create_session_folders_cb.setToolTip("Create separate folders for each session (Session_XXXXX)")
         options_layout.addWidget(self.create_session_folders_cb)
         
+        # Sandbox sync option
+        self.sync_sandbox_cb = QCheckBox("Enable Sandbox sync")
+        self.sync_sandbox_cb.setChecked(True)  # Default enabled
+        self.sync_sandbox_cb.setToolTip("Copy files to Sandbox directory and execute network sync script")
+        options_layout.addWidget(self.sync_sandbox_cb)
+        
         # File filters
         filter_layout = QHBoxLayout()
         self.filter_ue_assets_cb = QCheckBox("UE Assets only")
@@ -294,6 +300,7 @@ class CopyDialog(QDialog):
             'preserve_structure': self.preserve_structure_cb.isChecked(),
             'overwrite': self.overwrite_cb.isChecked(),
             'create_session_folders': self.create_session_folders_cb.isChecked(),
+            'sync_sandbox': self.sync_sandbox_cb.isChecked(),
             'filter_ue_assets': self.filter_ue_assets_cb.isChecked(),
             'filter_config_files': self.filter_config_files_cb.isChecked(),
             'filter_source_files': self.filter_source_files_cb.isChecked(),
@@ -380,8 +387,11 @@ class CopyDialog(QDialog):
         
         # If copy was successful, proceed with additional steps
         if successful:
-            self.log_message("Starting additional copy to Sandbox directory...")
-            self._copy_to_sandbox_and_sync(successful)
+            if self.sync_sandbox_cb.isChecked():
+                self.log_message("Starting additional copy to Sandbox directory...")
+                self._copy_to_sandbox_and_sync(successful)
+            else:
+                self.log_message("Sandbox sync is disabled - skipping additional copy")
         
         # Show summary dialog
         if failed:
