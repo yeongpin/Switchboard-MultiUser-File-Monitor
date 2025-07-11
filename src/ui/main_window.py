@@ -102,6 +102,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Switchboard MultiUser File Monitor")
         self.setMinimumSize(1200, 800)
         
+        # Set window icon
+        icon_path = Path(__file__).parent / "images" / "switchboard.png"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+        
         # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -157,11 +162,18 @@ class MainWindow(QMainWindow):
         # Refresh button
         self.refresh_btn = QPushButton("Refresh Config")
         self.refresh_btn.setToolTip("Refresh configuration detection")
+        # Add refresh icon
+        refresh_icon_path = Path(__file__).parent / "images" / "icon_refresh.png"
+        if refresh_icon_path.exists():
+            self.refresh_btn.setIcon(QIcon(str(refresh_icon_path)))
         toolbar_layout.addWidget(self.refresh_btn)
         
         # Force refresh button
         self.force_refresh_btn = QPushButton("Force Refresh")
         self.force_refresh_btn.setToolTip("Force immediate scan of all sessions")
+        # Add refresh icon
+        if refresh_icon_path.exists():
+            self.force_refresh_btn.setIcon(QIcon(str(refresh_icon_path)))
         toolbar_layout.addWidget(self.force_refresh_btn)
         
         # Auto-refresh checkbox
@@ -176,11 +188,18 @@ class MainWindow(QMainWindow):
         self.copy_all_btn = QPushButton("Copy All Sessions")
         self.copy_all_btn.setEnabled(False)
         self.copy_all_btn.setToolTip("Copy all session files to project content directory")
+        # Add copy icon to copy buttons
+        copy_icon_path = Path(__file__).parent / "images" / "copy_icon.png"
+        if copy_icon_path.exists():
+            copy_icon = QIcon(str(copy_icon_path))
+            self.copy_all_btn.setIcon(copy_icon)
         toolbar_layout.addWidget(self.copy_all_btn)
         
         self.copy_current_btn = QPushButton("Copy Current Session")
         self.copy_current_btn.setEnabled(False)
         self.copy_current_btn.setToolTip("Copy current selected session files to project content directory")
+        if copy_icon_path.exists():
+            self.copy_current_btn.setIcon(copy_icon)
         toolbar_layout.addWidget(self.copy_current_btn)
         
         return toolbar_layout
@@ -233,6 +252,10 @@ class MainWindow(QMainWindow):
         self.copy_selected_btn = QPushButton("Copy Selected")
         self.copy_selected_btn.setEnabled(False)
         self.copy_selected_btn.setToolTip("Copy selected files to project content directory")
+        # Add copy icon to copy selected button
+        copy_icon_path = Path(__file__).parent / "images" / "copy_icon.png"
+        if copy_icon_path.exists():
+            self.copy_selected_btn.setIcon(QIcon(str(copy_icon_path)))
         file_actions_layout.addWidget(self.copy_selected_btn)
         
         self.open_folder_btn = QPushButton("Open Folder")

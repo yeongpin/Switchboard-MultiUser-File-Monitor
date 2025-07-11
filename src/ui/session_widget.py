@@ -5,12 +5,13 @@ Displays MultiUser sessions in a table format
 """
 
 from typing import List, Optional
+from pathlib import Path
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QMenu
 )
 from PySide6.QtCore import Qt, Signal, QPoint
-from PySide6.QtGui import QColor, QBrush, QFont
+from PySide6.QtGui import QColor, QBrush, QFont, QIcon
 
 from core.file_monitor import MultiUserSession
 from utils.logger import get_logger
@@ -30,8 +31,32 @@ class SessionWidget(QWidget):
         self.logger = get_logger(__name__)
         self.sessions = {}  # session_key -> (session, row_index)
         
+        # Load status icons
+        self.load_status_icons()
+        
         self.setup_ui()
         self.setup_connections()
+    
+    def load_status_icons(self):
+        """Load status icons from images folder"""
+        self.status_icons = {}
+        images_path = Path(__file__).parent / "images"
+        
+        icon_files = {
+            "active": "status_green.png",
+            "inactive": "status_red.png",
+            "warning": "status_orange.png",
+            "idle": "status_cyan.png",
+            "blank": "status_blank.png",
+            "disabled": "status_blank_disabled.png"
+        }
+        
+        for status, filename in icon_files.items():
+            icon_path = images_path / filename
+            if icon_path.exists():
+                self.status_icons[status] = QIcon(str(icon_path))
+            else:
+                self.status_icons[status] = QIcon()  # Empty icon as fallback
     
     def setup_ui(self):
         """Setup the user interface"""
@@ -164,9 +189,14 @@ class SessionWidget(QWidget):
         size_item = QTableWidgetItem(self._format_size(session.total_size))
         self.table.setItem(row, 4, size_item)
         
-        # Status
-        status_item = QTableWidgetItem("Active")
-        status_item.setBackground(QBrush(QColor(144, 238, 144)))  # Light green
+        # Status with icon
+        status_text, status_icon_key = self._get_session_status(session)
+        status_item = QTableWidgetItem(status_text)
+        
+        # Set status icon
+        if status_icon_key in self.status_icons:
+            status_item.setIcon(self.status_icons[status_icon_key])
+        
         self.table.setItem(row, 5, status_item)
         
         # Highlight recently modified sessions
@@ -192,9 +222,32 @@ class SessionWidget(QWidget):
         return f"{size_bytes:.1f} {size_names[i]}"
     
     def _is_recent_session(self, session: MultiUserSession) -> bool:
-        """Check if session was modified recently (within last 5 minutes)"""
+        """Check if session was modified recently (within last 2 minutes)"""
         from datetime import datetime, timedelta
-        return (datetime.now() - session.last_modified) < timedelta(minutes=5)
+        return (datetime.now() - session.last_modified) < timedelta(minutes=2)
+    
+    def _get_session_status(self, session: MultiUserSession) -> tuple[str, str]:
+        """Get session status text and icon key"""
+        from datetime import datetime, timedelta
+        
+        now = datetime.now()
+        time_diff = now - session.last_modified
+        
+        # Active: modified within last 2 minutes (very recent)
+        if time_diff < timedelta(minutes=2):
+            return "Active", "active"
+        
+        # Idle: modified within last 10 minutes (recent)
+        elif time_diff < timedelta(minutes=10):
+            return "Idle", "idle"
+        
+        # Warning: modified within last 30 minutes (somewhat recent)
+        elif time_diff < timedelta(minutes=30):
+            return "Warning", "warning"
+        
+        # Inactive: older than 30 minutes
+        else:
+            return "Inactive", "inactive"
     
     def on_selection_changed(self):
         """Handle selection change"""

@@ -145,7 +145,14 @@ class FileMonitor(QThread):
         
         try:
             # Get last modified time and file count
-            last_modified = datetime.fromtimestamp(0)
+            # Initialize with directory's own modification time as baseline
+            try:
+                dir_stat = sandbox_path.stat()
+                last_modified = datetime.fromtimestamp(dir_stat.st_mtime)
+            except (OSError, FileNotFoundError):
+                # Fallback to current time if directory stat fails
+                last_modified = datetime.now()
+            
             file_count = 0
             total_size = 0
             
@@ -155,6 +162,7 @@ class FileMonitor(QThread):
             # Log performance
             elapsed = time.time() - start_time
             self.logger.debug(f"Session scan completed in {elapsed:.2f}s: {file_count} files, {total_size} bytes")
+            self.logger.debug(f"Session {session_key} last_modified: {last_modified.strftime('%Y-%m-%d %H:%M:%S')}")
             
             return MultiUserSession(
                 session_id=session_id,
