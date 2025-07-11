@@ -40,7 +40,7 @@ if errorlevel 1 (
 echo.
 echo Starting Switchboard MultiUser File Monitor...
 echo.
-python run.py
+python src/main.py
 
 :: Deactivate virtual environment
 deactivate

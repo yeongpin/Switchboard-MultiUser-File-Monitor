@@ -131,7 +131,7 @@ class FileTreeWidget(QWidget):
         
         # Update info label
         self.info_label.setText(f"Session: {session.session_id[:12]}... - {session.file_count} files")
-        self.info_label.setStyleSheet("color: black; font-weight: bold;")
+        self.info_label.setStyleSheet("color: white; font-weight: bold;")
         
         # Get all files in session
         try:

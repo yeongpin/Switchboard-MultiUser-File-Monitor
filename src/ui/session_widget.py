@@ -76,6 +76,20 @@ class SessionWidget(QWidget):
         self.table.setSortingEnabled(True)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)  # Disable editing
         
+        # Ensure row selection is highlighted properly
+        self.table.setStyleSheet("""
+            QTableWidget::item:selected {
+                background-color: #0078d4;
+                color: white;
+            }
+            QTableWidget::item:hover {
+                background-color: #0078d4;
+            }
+        """)
+        
+        # Set default sorting: Last Modified column (index 2) in descending order (newest first)
+        self.table.sortByColumn(2, Qt.DescendingOrder)
+        
         # Configure headers
         header = self.table.horizontalHeader()
         header.setStretchLastSection(True)
@@ -105,20 +119,11 @@ class SessionWidget(QWidget):
         """Add a new session to the table"""
         session_key = f"{session.session_id}_{session.user_id}"
         
-        if session_key in self.sessions:
-            # Update existing session
-            self.update_session(session)
-            return
+        # Store session data (without row index)
+        self.sessions[session_key] = (session, None)
         
-        # Add new row
-        row = self.table.rowCount()
-        self.table.insertRow(row)
-        
-        # Store session reference
-        self.sessions[session_key] = (session, row)
-        
-        # Populate row
-        self._populate_row(row, session)
+        # Rebuild the entire table to ensure proper sorting
+        self._rebuild_table()
         
         self.logger.debug(f"Added session to table: {session_key}")
     
@@ -126,17 +131,11 @@ class SessionWidget(QWidget):
         """Update existing session in the table"""
         session_key = f"{session.session_id}_{session.user_id}"
         
-        if session_key not in self.sessions:
-            self.add_session(session)
-            return
+        # Store updated session data
+        self.sessions[session_key] = (session, None)
         
-        stored_session, row = self.sessions[session_key]
-        
-        # Update session reference
-        self.sessions[session_key] = (session, row)
-        
-        # Update row data
-        self._populate_row(row, session)
+        # Rebuild the entire table to ensure proper sorting
+        self._rebuild_table()
         
         self.logger.debug(f"Updated session in table: {session_key}")
     
@@ -147,18 +146,11 @@ class SessionWidget(QWidget):
         if session_key not in self.sessions:
             return
         
-        _, row = self.sessions[session_key]
-        
-        # Remove row
-        self.table.removeRow(row)
-        
-        # Update row indices for remaining sessions
-        for key, (sess, sess_row) in self.sessions.items():
-            if sess_row > row:
-                self.sessions[key] = (sess, sess_row - 1)
-        
         # Remove from sessions dict
         del self.sessions[session_key]
+        
+        # Rebuild the entire table
+        self._rebuild_table()
         
         self.logger.debug(f"Removed session from table: {session_key}")
     
@@ -179,6 +171,8 @@ class SessionWidget(QWidget):
         last_modified_item = QTableWidgetItem(
             session.last_modified.strftime("%Y-%m-%d %H:%M:%S")
         )
+        # Set timestamp as sort data for proper chronological sorting
+        last_modified_item.setData(Qt.UserRole + 1, session.last_modified.timestamp())
         self.table.setItem(row, 2, last_modified_item)
         
         # File count
@@ -226,6 +220,50 @@ class SessionWidget(QWidget):
         from datetime import datetime, timedelta
         return (datetime.now() - session.last_modified) < timedelta(minutes=2)
     
+    def _rebuild_table(self):
+        """Rebuild the entire table with current session data"""
+        # Store current selection
+        selected_session = self.get_selected_session()
+        
+        # Clear table
+        self.table.setRowCount(0)
+        
+        # Get all sessions and sort by last modified time (newest first)
+        all_sessions = [(session, session_key) for session_key, (session, _) in self.sessions.items()]
+        all_sessions.sort(key=lambda x: x[0].last_modified, reverse=True)
+        
+        # Populate table
+        for row, (session, session_key) in enumerate(all_sessions):
+            self.table.insertRow(row)
+            self._populate_row(row, session)
+            # Update row index in sessions dict
+            self.sessions[session_key] = (session, row)
+        
+        # Ensure selection behavior is maintained after rebuild
+        self._ensure_selection_behavior()
+        
+        # Restore selection if possible
+        if selected_session:
+            self._select_session(selected_session)
+    
+    def _ensure_selection_behavior(self):
+        """Ensure proper selection behavior is maintained"""
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+    
+    def _select_session(self, session: MultiUserSession):
+        """Select a specific session in the table"""
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item and item.data(Qt.UserRole) == session:
+                # Clear current selection first
+                self.table.clearSelection()
+                # Select the entire row
+                self.table.selectRow(row)
+                # Set current item to ensure proper highlighting
+                self.table.setCurrentItem(item)
+                break
+    
     def _get_session_status(self, session: MultiUserSession) -> tuple[str, str]:
         """Get session status text and icon key"""
         from datetime import datetime, timedelta
@@ -253,6 +291,9 @@ class SessionWidget(QWidget):
         """Handle selection change"""
         current_row = self.table.currentRow()
         if current_row >= 0:
+            # Ensure the entire row is selected
+            self.table.selectRow(current_row)
+            
             item = self.table.item(current_row, 0)
             if item:
                 session = item.data(Qt.UserRole)

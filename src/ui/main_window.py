@@ -25,6 +25,20 @@ from ui.file_tree_widget import FileTreeWidget
 from ui.copy_dialog import CopyDialog
 from utils.logger import get_logger
 
+# Get version - handle both direct run and packaged scenarios
+try:
+    from src import __version__
+except ImportError:
+    try:
+        # When running from src directory
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from __init__ import __version__
+    except ImportError:
+        # Fallback version
+        __version__ = "1.0.6"
+
 
 class ConfigDetectorWorker(QThread):
     """Worker thread for config detection to avoid UI blocking"""
@@ -137,12 +151,20 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         
+        # Remove the separator by setting custom style
+        self.status_bar.setStyleSheet("QStatusBar::item { border: 0px; }")
+        
         # Progress bar for status bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
         
-        # Status label
+        # Version label (right side)
+        self.version_label = QLabel(f"v{__version__}")
+        self.version_label.setStyleSheet("QLabel { color: #888; font-size: 10px; }")
+        self.status_bar.addPermanentWidget(self.version_label)
+        
+        # Status label (left side)
         self.status_label = QLabel("Ready")
         self.status_bar.addWidget(self.status_label)
         
