@@ -37,7 +37,7 @@ except ImportError:
         from __init__ import __version__
     except ImportError:
         # Fallback version
-        __version__ = "1.1.0"
+        __version__ = "1.1.1"
 
 
 class ConfigDetectorWorker(QThread):
@@ -455,6 +455,9 @@ class MainWindow(QMainWindow):
             self.logger.debug(f"Config {config.project_name} already loaded, skipping")
             return
         
+        # Clear previous sessions and UI state when switching configs
+        self.clear_sessions()
+        
         self.current_config = config
         self.logger.info(f"Loaded config: {config.project_name}")
         
@@ -471,6 +474,32 @@ class MainWindow(QMainWindow):
         self.copy_all_btn.setEnabled(True)
         # Note: copy_current_btn is enabled when a session is selected
         
+    def clear_sessions(self):
+        """Clear all sessions and related UI state"""
+        # Clear sessions dictionary
+        self.sessions.clear()
+        
+        # Clear session widget
+        self.session_widget.clear_sessions()
+        
+        # Clear file tree widget
+        self.file_tree_widget.clear()
+        
+        # Reset current session
+        self.current_session = None
+        
+        # Disable related buttons
+        self.copy_current_btn.setEnabled(False)
+        self.open_folder_btn.setEnabled(False)
+        
+        # Reset file selection
+        self.copy_selected_btn.setEnabled(False)
+        
+        # Update status
+        self.status_label.setText("Ready")
+        
+        self.log_message("Cleared previous sessions for config switch")
+    
     def update_config_info(self):
         """Update configuration info display"""
         if not self.current_config:

@@ -4,3 +4,4 @@ venv
 logs
 build
 dist
+temp_build.spec
