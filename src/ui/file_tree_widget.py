@@ -465,7 +465,7 @@ class FileTreeWidget(QWidget):
             self.selection_label.setStyleSheet("color: gray;")
         else:
             self.selection_label.setText(f"{selected_count} of {total_count} files selected")
-            self.selection_label.setStyleSheet("color: blue; font-weight: bold;")
+            self.selection_label.setStyleSheet("color: white; font-weight: bold;")
         
         # Debug log
         if selected_count > 0:
