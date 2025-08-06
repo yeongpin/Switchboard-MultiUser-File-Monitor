@@ -199,7 +199,14 @@ class ConfigDetector:
                 elif hasattr(config_mgr, 'current_config'):
                     current_config_path = config_mgr.current_config
                 else:
-                    return None
+                    # Try to find any available config file
+                    available_configs = self.get_available_configs()
+                    if available_configs:
+                        current_config_path = available_configs[0]
+                        self.logger.info(f"Using first available config: {current_config_path}")
+                    else:
+                        self.logger.warning("No config files found")
+                        return None
             
             # Load config file
             config_data = self._load_config_file(current_config_path)
@@ -235,14 +242,62 @@ class ConfigDetector:
     def get_available_configs(self) -> list[Path]:
         """Get list of available configuration files"""
         config_mgr, _ = self._get_config_manager()
-        if not config_mgr:
-            return []
         
-        try:
-            return config_mgr.list_config_paths()
-        except Exception as e:
-            self.logger.error(f"Error listing config paths: {e}")
-            return []
+        config_files = []
+        
+        # Try to get configs from ConfigManager if available
+        if config_mgr:
+            try:
+                if hasattr(config_mgr, 'list_config_paths'):
+                    config_files = config_mgr.list_config_paths()
+                elif hasattr(config_mgr, 'config_dir'):
+                    config_dir = Path(config_mgr.config_dir)
+                    if config_dir.exists():
+                        config_files = list(config_dir.glob("*.json"))
+                        # Filter out user_settings.json
+                        config_files = [f for f in config_files if f.name != "user_settings.json"]
+            except Exception as e:
+                self.logger.error(f"Error getting configs from ConfigManager: {e}")
+        
+        # If no configs found via ConfigManager, try direct file system search
+        if not config_files:
+            self.logger.info("Searching for config files in common locations...")
+            
+            # Common Switchboard config locations
+            common_config_dirs = [
+                Path("D:/UE_5.6/Engine/Plugins/VirtualProduction/Switchboard/Source/Switchboard/configs"),
+                Path("C:/Program Files/Epic Games/UE_5.6/Engine/Plugins/VirtualProduction/Switchboard/Source/Switchboard/configs"),
+                Path.home() / "Documents" / "Switchboard" / "configs",
+                Path.home() / "AppData" / "Local" / "Switchboard" / "configs",
+            ]
+            
+            # Add current directory and parent directories
+            current_dir = Path.cwd()
+            for _ in range(5):  # Look up to 5 levels up
+                config_dir = current_dir / "configs"
+                if config_dir.exists():
+                    common_config_dirs.append(config_dir)
+                current_dir = current_dir.parent
+                if current_dir == current_dir.parent:
+                    break
+            
+            # Search in all common directories
+            for config_dir in common_config_dirs:
+                if config_dir.exists():
+                    try:
+                        for config_file in config_dir.glob("*.json"):
+                            if config_file.name != "user_settings.json":
+                                config_files.append(config_file)
+                                self.logger.info(f"Found config file: {config_file}")
+                    except Exception as e:
+                        self.logger.error(f"Error scanning config dir {config_dir}: {e}")
+        
+        # Remove duplicates and sort by modification time (newest first)
+        unique_configs = list(set(config_files))
+        unique_configs.sort(key=lambda x: x.stat().st_mtime if x.exists() else 0, reverse=True)
+        
+        self.logger.info(f"Found {len(unique_configs)} config files")
+        return unique_configs
     
     def load_config_by_path(self, config_path: Path) -> Optional[SwitchboardConfig]:
         """Load specific configuration by path"""

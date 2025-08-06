@@ -20,9 +20,9 @@ from PySide6.QtGui import QFont, QIcon
 from core.config_detector import ConfigDetector, SwitchboardConfig
 from core.file_monitor import FileMonitor, MultiUserSession
 from core.file_manager import FileManager, CopyOperation
-from ui.session_widget import SessionWidget
-from ui.file_tree_widget import FileTreeWidget
-from ui.copy_dialog import CopyDialog
+from ui.multiusersync.session_widget import SessionWidget
+from ui.multiusersync.file_tree_widget import FileTreeWidget
+from ui.multiusersync.copy_dialog import CopyDialog
 from utils.logger import get_logger
 
 # Get version - handle both direct run and packaged scenarios
@@ -118,8 +118,26 @@ class MainWindow(QMainWindow):
         
         # Set window icon
         icon_path = Path(__file__).parent / "images" / "switchboard.png"
+        if not icon_path.exists():
+            # Try alternative paths for packaged environment
+            import sys
+            if getattr(sys, 'frozen', False):
+                # Running in a bundle (PyInstaller)
+                base_path = Path(sys._MEIPASS)
+                icon_path = base_path / "ui" / "multiusersync" / "images" / "switchboard.png"
+            else:
+                # Running in normal Python environment
+                icon_path = Path(__file__).parent / "images" / "switchboard.png"
+        
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
+        
+        # Apply simple stylesheet for brighter disabled buttons
+        self.setStyleSheet("""
+        QPushButton:disabled {
+            color: #828282;
+        }
+        """)
         
         # Create central widget
         central_widget = QWidget()
@@ -186,6 +204,17 @@ class MainWindow(QMainWindow):
         self.refresh_btn.setToolTip("Refresh configuration detection")
         # Add refresh icon
         refresh_icon_path = Path(__file__).parent / "images" / "icon_refresh.png"
+        if not refresh_icon_path.exists():
+            # Try alternative paths for packaged environment
+            import sys
+            if getattr(sys, 'frozen', False):
+                # Running in a bundle (PyInstaller)
+                base_path = Path(sys._MEIPASS)
+                refresh_icon_path = base_path / "ui" / "multiusersync" / "images" / "icon_refresh.png"
+            else:
+                # Running in normal Python environment
+                refresh_icon_path = Path(__file__).parent / "images" / "icon_refresh.png"
+        
         if refresh_icon_path.exists():
             self.refresh_btn.setIcon(QIcon(str(refresh_icon_path)))
         toolbar_layout.addWidget(self.refresh_btn)
@@ -212,6 +241,17 @@ class MainWindow(QMainWindow):
         self.copy_all_btn.setToolTip("Copy all session files to project content directory")
         # Add copy icon to copy buttons
         copy_icon_path = Path(__file__).parent / "images" / "copy_icon.png"
+        if not copy_icon_path.exists():
+            # Try alternative paths for packaged environment
+            import sys
+            if getattr(sys, 'frozen', False):
+                # Running in a bundle (PyInstaller)
+                base_path = Path(sys._MEIPASS)
+                copy_icon_path = base_path / "ui" / "multiusersync" / "images" / "copy_icon.png"
+            else:
+                # Running in normal Python environment
+                copy_icon_path = Path(__file__).parent / "images" / "copy_icon.png"
+        
         if copy_icon_path.exists():
             copy_icon = QIcon(str(copy_icon_path))
             self.copy_all_btn.setIcon(copy_icon)
@@ -276,6 +316,17 @@ class MainWindow(QMainWindow):
         self.copy_selected_btn.setToolTip("Copy selected files to project content directory")
         # Add copy icon to copy selected button
         copy_icon_path = Path(__file__).parent / "images" / "copy_icon.png"
+        if not copy_icon_path.exists():
+            # Try alternative paths for packaged environment
+            import sys
+            if getattr(sys, 'frozen', False):
+                # Running in a bundle (PyInstaller)
+                base_path = Path(sys._MEIPASS)
+                copy_icon_path = base_path / "ui" / "multiusersync" / "images" / "copy_icon.png"
+            else:
+                # Running in normal Python environment
+                copy_icon_path = Path(__file__).parent / "images" / "copy_icon.png"
+        
         if copy_icon_path.exists():
             self.copy_selected_btn.setIcon(QIcon(str(copy_icon_path)))
         file_actions_layout.addWidget(self.copy_selected_btn)

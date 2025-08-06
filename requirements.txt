@@ -1,2 +1,5 @@
 PySide6>=6.5.0 
 uuid
+python-osc
+aioquic
+six

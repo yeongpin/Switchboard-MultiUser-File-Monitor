@@ -1,3 +1,13 @@
+### v1.2.0
+- 🚀 **新增完整 Switchboard 嵌入**：集成完整的 Switchboard 界面，支持設備管理和 Unreal Engine 控制
+- 🔧 **修復 QToolTip 實例化問題**：解決嵌入式環境中 QToolTip 無法實例化的錯誤
+- 🎨 **改善 UI 可讀性**：優化 disabled button 文字顏色，在深色主題下更易讀
+- 📦 **依賴項管理**：自動安裝和配置 Switchboard 所需的依賴項（python-osc、aioquic、six）
+- 🔄 **配置自動檢測**：智能檢測和加載 Switchboard 配置文件，支持 VP56.json 等
+- 🌐 **OSC 服務器集成**：內建 OSC 服務器，支持與 Unreal Engine 的通信
+- 🎯 **雙模式支持**：同時支持 MultiUser 文件監控和完整 Switchboard 功能
+- 📋 **增強的錯誤處理**：改進嵌入式 Switchboard 的錯誤處理和恢復機制
+
 ### v1.1.1
 - 🔧 **修复配置切换问题**：切换配置时自动清空旧的会话列表，避免不同配置的会话混乱
 - 🧹 **改进UI清理**：切换配置时重置所有相关UI状态（会话列表、文件树、按钮状态）

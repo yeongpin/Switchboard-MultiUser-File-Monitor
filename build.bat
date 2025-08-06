@@ -3,6 +3,30 @@ echo ========================================
 echo  Simple Build with UUID Fix
 echo ========================================
 
+:: Check if virtual environment exists
+if not exist "venv" (
+    echo Creating virtual environment...
+    python -m venv venv
+    if errorlevel 1 (
+        echo Error: Failed to create virtual environment
+        echo Please make sure Python is installed and accessible
+        pause
+        exit /b 1
+    )
+    echo Virtual environment created successfully
+) else (
+    echo Virtual environment already exists
+)
+
+:: Activate virtual environment
+echo Activating virtual environment...
+call venv\Scripts\activate.bat
+if errorlevel 1 (
+    echo Error: Failed to activate virtual environment
+    pause
+    exit /b 1
+)
+
 REM Clean previous builds
 if exist "build" rmdir /s /q "build"
 if exist "*.spec" del /q "*.spec"image.png
@@ -22,14 +46,34 @@ python -m PyInstaller ^
     --onefile ^
     --windowed ^
     --name "temp_build" ^
-    --add-data "src/ui/images;ui/images" ^
+    --add-data "src/ui/multiusersync/images;ui/multiusersync/images" ^
     --add-data "src/external/sync_sandbox.bat;external" ^
     --distpath "dist" ^
     --workpath "build" ^
     --clean ^
-    --icon "src/ui/images/switchboard.ico" ^
+    --icon "src/ui/multiusersync/images/switchboard.ico" ^
     --hidden-import sqlite3 ^
     --hidden-import uuid ^
+    --hidden-import shlex ^
+    --hidden-import pythonosc ^
+    --hidden-import pythonosc.dispatcher ^
+    --hidden-import pythonosc.udp_client ^
+    --hidden-import pythonosc.osc_server ^
+    --hidden-import pythonosc.osc_message ^
+    --hidden-import pythonosc.osc_bundle ^
+    --hidden-import pythonosc.osc_types ^
+    --hidden-import aioquic ^
+    --hidden-import aioquic.asyncio ^
+    --hidden-import aioquic.h3 ^
+    --hidden-import aioquic.h3.connection ^
+    --hidden-import aioquic.h3.events ^
+    --hidden-import aioquic.quic ^
+    --hidden-import aioquic.quic.connection ^
+    --hidden-import aioquic.quic.events ^
+    --hidden-import six ^
+    --hidden-import ctypes ^
+    --hidden-import ctypes.wintypes ^
+    --hidden-import ctypes.util ^
     --hidden-import dataclasses ^
     --hidden-import pathlib ^
     --hidden-import typing ^
