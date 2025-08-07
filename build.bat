@@ -48,6 +48,7 @@ python -m PyInstaller ^
     --name "temp_build" ^
     --add-data "src/ui/multiusersync/images;ui/multiusersync/images" ^
     --add-data "src/external/sync_sandbox.bat;external" ^
+    --add-data "CHANGELOG.md;ui/changelog" ^
     --distpath "dist" ^
     --workpath "build" ^
     --clean ^

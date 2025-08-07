@@ -50,25 +50,40 @@ class ChangelogWidget(QWidget):
     def load_changelog(self):
         """Load and parse changelog.md file"""
         try:
-            # Try to find changelog.md in the project root
-            changelog_path = Path(__file__).parent.parent.parent.parent / "CHANGELOG.md"
+            # Try to find changelog.md file
+            changelog_path = None
             
-            if not changelog_path.exists():
-                # Try alternative paths
-                changelog_path = Path(__file__).parent.parent.parent / "CHANGELOG.md"
-            
-            if changelog_path.exists():
-                with open(changelog_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                self.parse_changelog(content)
-                self.logger.info("Changelog loaded successfully")
+            # Check if running in packaged environment
+            import sys
+            if getattr(sys, 'frozen', False):
+                # Running in a bundle (PyInstaller)
+                base_path = Path(sys._MEIPASS)
+                changelog_path = base_path / "ui" / "changelog" / "CHANGELOG.md"
+                self.logger.info(f"PyInstaller environment detected. Looking for: {changelog_path}")
             else:
+                # Running in development environment
+                changelog_path = Path(__file__).parent / "CHANGELOG.md"
+                self.logger.info(f"Development environment. Looking for: {changelog_path}")
+            
+            # Try to read the file
+            if changelog_path and changelog_path.exists():
+                try:
+                    with open(changelog_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    self.parse_changelog(content)
+                    self.logger.info(f"Changelog loaded successfully from: {changelog_path}")
+                except Exception as e:
+                    self.logger.error(f"Failed to read changelog file: {e}")
+                    self.show_error(f"无法读取changelog文件: {changelog_path}")
+            else:
+                self.logger.warning(f"Changelog file not found at: {changelog_path}")
                 self.show_error("找不到 CHANGELOG.md 文件")
-                self.logger.warning("CHANGELOG.md file not found")
                 
         except Exception as e:
             self.show_error(f"加载changelog失败: {str(e)}")
             self.logger.error(f"Failed to load changelog: {e}")
+    
+
     
     def parse_changelog(self, content):
         """Parse changelog content and create UI elements"""
