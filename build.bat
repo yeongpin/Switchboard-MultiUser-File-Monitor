@@ -74,6 +74,10 @@ python -m PyInstaller ^
     --hidden-import ctypes ^
     --hidden-import ctypes.wintypes ^
     --hidden-import ctypes.util ^
+    --hidden-import xml ^
+    --hidden-import xml.etree ^
+    --hidden-import xml.etree.ElementTree ^
+    --hidden-import xml.etree.ElementPath ^
     --hidden-import dataclasses ^
     --hidden-import pathlib ^
     --hidden-import typing ^
