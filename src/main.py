@@ -20,6 +20,7 @@ from PySide6.QtGui import QIcon
 
 from ui.multiusersync.main_window import MainWindow
 from ui.switchboard import SwitchboardWidget
+from ui.changelog import ChangelogWidget
 from utils.logger import setup_logger
 
 
@@ -34,6 +35,7 @@ class IntegratedMainWindow(QMainWindow):
         # Initialize components
         self.switchboard_dialog = None
         self.multiuser_widget = None
+        self.changelog_widget = None
         
         self.setup_ui()
         self.initialize_tabs()
@@ -105,6 +107,30 @@ class IntegratedMainWindow(QMainWindow):
             placeholder.layout().addWidget(label)
             
             self.tab_widget.addTab(placeholder, "MultiUser File Monitor")
+        
+        # Initialize Changelog (Tab 3)
+        try:
+            self.logger.info("Initializing Changelog...")
+            self.changelog_widget = ChangelogWidget()
+            
+            # Add Changelog as third tab
+            self.tab_widget.addTab(
+                self.changelog_widget, 
+                "Changelog"
+            )
+            self.logger.info("Changelog tab added successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize Changelog: {e}")
+            # Create a placeholder widget for Changelog tab
+            placeholder = QWidget()
+            placeholder.setLayout(QVBoxLayout())
+            from PySide6.QtWidgets import QLabel
+            label = QLabel("Changelog not available")
+            label.setAlignment(Qt.AlignCenter)
+            placeholder.layout().addWidget(label)
+            
+            self.tab_widget.addTab(placeholder, "Changelog")
     
     def cleanup_all_processes(self):
         """Clean up all related processes"""
@@ -193,24 +219,71 @@ class IntegratedMainWindow(QMainWindow):
         """Handle application close event"""
         self.logger.info("Application closing...")
         
-        # Clean up MultiUser widget
-        if self.multiuser_widget:
+        # Hide window immediately for better user experience
+        self.hide()
+        event.accept()  # Accept the event first
+        
+        # Run cleanup in background
+        self.run_cleanup_in_background()
+    
+    def run_cleanup_in_background(self):
+        """Run cleanup operations in background thread"""
+        from PySide6.QtCore import QThread, QTimer
+        
+        def cleanup_thread():
+            """Background cleanup function"""
             try:
-                self.multiuser_widget.closeEvent(event)
+                # Clean up MultiUser widget
+                if self.multiuser_widget:
+                    try:
+                        # Create a dummy event for cleanup
+                        from PySide6.QtGui import QCloseEvent
+                        dummy_event = QCloseEvent()
+                        self.multiuser_widget.closeEvent(dummy_event)
+                    except Exception as e:
+                        self.logger.error(f"Error closing MultiUser widget: {e}")
+                
+                # Clean up Switchboard widget
+                if self.switchboard_widget:
+                    try:
+                        # Create a dummy event for cleanup
+                        from PySide6.QtGui import QCloseEvent
+                        dummy_event = QCloseEvent()
+                        self.switchboard_widget.closeEvent(dummy_event)
+                    except Exception as e:
+                        self.logger.error(f"Error closing Switchboard widget: {e}")
+                
+                # Clean up Changelog widget
+                if self.changelog_widget:
+                    try:
+                        # Create a dummy event for cleanup
+                        from PySide6.QtGui import QCloseEvent
+                        dummy_event = QCloseEvent()
+                        if hasattr(self.changelog_widget, 'closeEvent'):
+                            self.changelog_widget.closeEvent(dummy_event)
+                    except Exception as e:
+                        self.logger.error(f"Error closing Changelog widget: {e}")
+                
+                # Clean up all processes
+                self.cleanup_all_processes()
+                
+                self.logger.info("Background cleanup completed")
+                
             except Exception as e:
-                self.logger.error(f"Error closing MultiUser widget: {e}")
+                self.logger.error(f"Error in background cleanup: {e}")
+            finally:
+                # Schedule application quit on main thread
+                QTimer.singleShot(0, self.quit_application)
         
-        # Clean up Switchboard widget
-        if self.switchboard_widget:
-            try:
-                self.switchboard_widget.closeEvent(event)
-            except Exception as e:
-                self.logger.error(f"Error closing Switchboard widget: {e}")
-        
-        # Clean up all processes
-        self.cleanup_all_processes()
-        
-        event.accept()
+        # Start cleanup in a separate thread
+        import threading
+        cleanup_thread_obj = threading.Thread(target=cleanup_thread, daemon=True)
+        cleanup_thread_obj.start()
+    
+    def quit_application(self):
+        """Quit the application from main thread"""
+        from PySide6.QtWidgets import QApplication
+        QApplication.quit()
 
 
 def main():
@@ -222,7 +295,7 @@ def main():
     # Create QApplication
     app = QApplication(sys.argv)
     app.setApplicationName("Switchboard MultiUser File Monitor")
-    app.setApplicationVersion("1.2.0")
+    app.setApplicationVersion("1.2.1")
     
     # Set application icon
     icon_path = Path(__file__).parent / "ui" / "multiusersync" / "images" / "switchboard.ico"
