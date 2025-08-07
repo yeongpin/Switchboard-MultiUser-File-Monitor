@@ -205,8 +205,14 @@ class ChangelogWidget(QWidget):
         
         # Add items
         for item in items:
-            item_label = QLabel(f"• {item}")
+            # Process markdown bold syntax (**text**)
+            self.logger.info(f"Processing item: {item}")
+            processed_item = self.process_markdown_bold(item)
+            self.logger.info(f"Processed item: {processed_item}")
+            
+            item_label = QLabel(f"• {processed_item}")
             item_label.setWordWrap(True)
+            item_label.setTextFormat(Qt.RichText)  # Enable HTML formatting
             item_label.setStyleSheet("""
                 QLabel {
                     color: #ffffff;
@@ -245,6 +251,17 @@ class ChangelogWidget(QWidget):
         else:
             content_widget.show()
             button.setText("▲")
+    
+    def process_markdown_bold(self, text):
+        """Process markdown bold syntax (**text**) to HTML bold tags with gold color"""
+        import re        
+        # Add spaces around colons first (both English and Chinese colons)
+        processed_text = re.sub(r'[:：]', r' : ', text)
+        
+        # Replace **text** with <b style="color: #ffbb00;">text</b> (gold color)
+        processed_text = re.sub(r'\*\*(.*?)\*\*', r'<b style="color: #ffbb00;">\1</b>', processed_text)
+        
+        return processed_text
     
     def show_error(self, message):
         """Show error message"""
