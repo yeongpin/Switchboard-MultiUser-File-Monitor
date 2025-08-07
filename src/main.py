@@ -139,35 +139,36 @@ class IntegratedMainWindow(QMainWindow):
                             except Exception as e:
                                 self.logger.error(f"Failed to kill process {pid}: {e}")
             
-            # Additional cleanup: kill any remaining Python processes that might be Switchboard-related
+            # Additional cleanup: kill only Switchboard-related Python processes
             try:
                 # Get current process ID to avoid killing ourselves
                 current_pid = os.getpid()
                 
-                # Find Python processes that might be Switchboard-related
-                result = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq python.exe', '/FO', 'CSV'], 
+                # Only kill Python processes that are actually using Switchboard ports or have Switchboard in their command line
+                result = subprocess.run(['wmic', 'process', 'where', 'name="python.exe"', 'get', 'processid,commandline', '/format:csv'], 
                                       capture_output=True, text=True, check=False,
                                       startupinfo=startupinfo, creationflags=subprocess.CREATE_NO_WINDOW)
                 if result.returncode == 0:
                     lines = result.stdout.split('\n')[1:]  # Skip header
                     for line in lines:
-                        if line.strip():
+                        if line.strip() and ',' in line:
                             parts = line.split(',')
-                            if len(parts) >= 2:
-                                pid_str = parts[1].strip('"')
+                            if len(parts) >= 3:
                                 try:
-                                    pid = int(pid_str)
-                                    if pid != current_pid:  # Don't kill ourselves
-                                        # Check if this process is using Switchboard-related ports
-                                        port_check = subprocess.run(['netstat', '-ano'], 
-                                                                  capture_output=True, text=True, check=False,
-                                                                  startupinfo=startupinfo, creationflags=subprocess.CREATE_NO_WINDOW)
-                                        if port_check.returncode == 0 and ('8730' in port_check.stdout or 'switchboard' in port_check.stdout.lower()):
-                                            subprocess.run(['taskkill', '/F', '/PID', str(pid)], 
-                                                         capture_output=True, check=False,
-                                                         startupinfo=startupinfo, creationflags=subprocess.CREATE_NO_WINDOW)
-                                            self.logger.info(f"Killed potential Switchboard Python process {pid}")
-                                except ValueError:
+                                    pid = int(parts[1].strip('"'))
+                                    commandline = parts[2].strip('"').lower()
+                                    
+                                    # Only kill if it's not our process AND it's actually Switchboard-related
+                                    if (pid != current_pid and 
+                                        ('switchboard' in commandline or 
+                                         'sbl_helper' in commandline or
+                                         'listener' in commandline)):
+                                        
+                                        subprocess.run(['taskkill', '/F', '/PID', str(pid)], 
+                                                     capture_output=True, check=False,
+                                                     startupinfo=startupinfo, creationflags=subprocess.CREATE_NO_WINDOW)
+                                        self.logger.info(f"Killed Switchboard-related Python process {pid}")
+                                except (ValueError, IndexError):
                                     continue
             except Exception as e:
                 self.logger.error(f"Error in additional cleanup: {e}")
