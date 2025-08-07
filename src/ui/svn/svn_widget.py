@@ -152,7 +152,6 @@ class SVNWorker(QThread):
         for line in lines:
             if '<entry' in line and 'path=' in line:
                 # Extract path and status
-                import re
                 path_match = re.search(r'path="([^"]+)"', line)
                 status_match = re.search(r'item="([^"]+)"', line)
                 
