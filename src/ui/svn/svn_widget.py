@@ -5,6 +5,7 @@ Manages SVN version control for Unreal project Content folders
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Dict, Any
