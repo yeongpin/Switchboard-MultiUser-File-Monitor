@@ -1,3 +1,11 @@
+### v1.2.2
+#### 2025/08/12
+- 🔧 **修复SVN组件问题**：修复SVN组件的UI布局问题，确保SVN组件的UI布局与MultiUser组件一致
+- 🎯 **优化SVN组件**：改进SVN组件的UI布局，确保SVN组件的UI布局与MultiUser组件一致
+- 📋 **改进SVN组件**：改进SVN组件的UI布局，确保SVN组件的UI布局与MultiUser组件一致
+- 🎨 **统一UI风格**：Changelog组件采用与MultiUser组件一致的设计风格，使用QGroupBox布局和统一的字体样式
+- 📱 **优化界面布局**：改进Changelog的视觉层次和间距，提升用户体验
+
 ### v1.2.1
 #### 2025/08/07
 - 🔧 **修复进程清理问题**：优化进程清理逻辑，只清理真正与Switchboard相关的Python进程，避免误杀其他Python执行文件

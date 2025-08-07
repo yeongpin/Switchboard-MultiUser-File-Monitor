@@ -21,6 +21,7 @@ from PySide6.QtGui import QIcon
 from ui.multiusersync.main_window import MainWindow
 from ui.switchboard import SwitchboardWidget
 from ui.changelog import ChangelogWidget
+from ui.svn import SVNWidget
 from utils.logger import setup_logger
 
 
@@ -36,7 +37,16 @@ class IntegratedMainWindow(QMainWindow):
         self.switchboard_dialog = None
         self.multiuser_widget = None
         self.changelog_widget = None
+        self.svn_widget = None
+
+        # Initialize index for tab ordering
+        self.index = type('Index', (), {})()
+        self.index.switchboard_dialog = 0
+        self.index.multiuser_widget = 1
+        self.index.svn_widget = 2
+        self.index.changelog_widget = 3
         
+
         self.setup_ui()
         self.initialize_tabs()
         
@@ -58,79 +68,78 @@ class IntegratedMainWindow(QMainWindow):
         
     def initialize_tabs(self):
         """Initialize the tab widgets"""
-        # Initialize Switchboard (Tab 1) - Choose between embedded and simple versions
+        # Create a list to store tabs in order
+        tabs_to_add = []
+        
+        # Initialize Switchboard (Tab 0)
         try:
             self.logger.info("Initializing Switchboard...")
-            
             self.switchboard_widget = SwitchboardWidget()
             self.logger.info("Using embedded Switchboard (full interface)")
-            
-            # Add Switchboard as first tab
-            self.tab_widget.addTab(
-                self.switchboard_widget, 
-                "Switchboard"
-            )
+            tabs_to_add.append((self.index.switchboard_dialog, self.switchboard_widget, "Switchboard"))
             self.logger.info("Switchboard tab added successfully")
-            
         except Exception as e:
             self.logger.error(f"Failed to initialize Switchboard: {e}")
-            # Create a placeholder widget for Switchboard tab
             placeholder = QWidget()
             placeholder.setLayout(QVBoxLayout())
             from PySide6.QtWidgets import QLabel
             label = QLabel("Switchboard initialization failed")
             label.setAlignment(Qt.AlignCenter)
             placeholder.layout().addWidget(label)
-            
-            self.tab_widget.addTab(placeholder, "Switchboard")
+            tabs_to_add.append((self.index.switchboard_dialog, placeholder, "Switchboard"))
         
-        # Initialize MultiUser File Monitor (Tab 2)
+        # Initialize MultiUser File Monitor (Tab 1)
         try:
             self.logger.info("Initializing MultiUser File Monitor...")
             self.multiuser_widget = MainWindow()
-            
-            # Add MultiUser as second tab
-            self.tab_widget.addTab(
-                self.multiuser_widget, 
-                "MultiUser File Monitor"
-            )
+            tabs_to_add.append((self.index.multiuser_widget, self.multiuser_widget, "MultiUser File Monitor"))
             self.logger.info("MultiUser File Monitor tab added successfully")
-            
         except Exception as e:
             self.logger.error(f"Failed to initialize MultiUser File Monitor: {e}")
-            # Create a placeholder widget for MultiUser tab
             placeholder = QWidget()
             placeholder.setLayout(QVBoxLayout())
             from PySide6.QtWidgets import QLabel
             label = QLabel("MultiUser File Monitor not available")
             label.setAlignment(Qt.AlignCenter)
             placeholder.layout().addWidget(label)
-            
-            self.tab_widget.addTab(placeholder, "MultiUser File Monitor")
+            tabs_to_add.append((self.index.multiuser_widget, placeholder, "MultiUser File Monitor"))
+        
+        # Initialize SVN Version Control (Tab 2)
+        try:
+            self.logger.info("Initializing SVN Version Control...")
+            self.svn_widget = SVNWidget()
+            tabs_to_add.append((self.index.svn_widget, self.svn_widget, "SVN Version Control"))
+            self.logger.info("SVN Version Control tab added successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize SVN Version Control: {e}")
+            placeholder = QWidget()
+            placeholder.setLayout(QVBoxLayout())
+            from PySide6.QtWidgets import QLabel
+            label = QLabel("SVN Version Control not available")
+            label.setAlignment(Qt.AlignCenter)
+            placeholder.layout().addWidget(label)
+            tabs_to_add.append((self.index.svn_widget, placeholder, "SVN Version Control"))
         
         # Initialize Changelog (Tab 3)
         try:
             self.logger.info("Initializing Changelog...")
             self.changelog_widget = ChangelogWidget()
-            
-            # Add Changelog as third tab
-            self.tab_widget.addTab(
-                self.changelog_widget, 
-                "Changelog"
-            )
+            tabs_to_add.append((self.index.changelog_widget, self.changelog_widget, "Changelog"))
             self.logger.info("Changelog tab added successfully")
-            
         except Exception as e:
             self.logger.error(f"Failed to initialize Changelog: {e}")
-            # Create a placeholder widget for Changelog tab
             placeholder = QWidget()
             placeholder.setLayout(QVBoxLayout())
             from PySide6.QtWidgets import QLabel
             label = QLabel("Changelog not available")
             label.setAlignment(Qt.AlignCenter)
             placeholder.layout().addWidget(label)
-            
-            self.tab_widget.addTab(placeholder, "Changelog")
+            tabs_to_add.append((self.index.changelog_widget, placeholder, "Changelog"))
+        
+        # Add tabs in the correct order based on index
+        tabs_to_add.sort(key=lambda x: x[0])  # Sort by index
+        for index, widget, title in tabs_to_add:
+            self.tab_widget.addTab(widget, title)
     
     def cleanup_all_processes(self):
         """Clean up all related processes"""
@@ -263,6 +272,17 @@ class IntegratedMainWindow(QMainWindow):
                             self.changelog_widget.closeEvent(dummy_event)
                     except Exception as e:
                         self.logger.error(f"Error closing Changelog widget: {e}")
+                
+                # Clean up SVN widget
+                if self.svn_widget:
+                    try:
+                        # Create a dummy event for cleanup
+                        from PySide6.QtGui import QCloseEvent
+                        dummy_event = QCloseEvent()
+                        if hasattr(self.svn_widget, 'closeEvent'):
+                            self.svn_widget.closeEvent(dummy_event)
+                    except Exception as e:
+                        self.logger.error(f"Error closing SVN widget: {e}")
                 
                 # Clean up all processes
                 self.cleanup_all_processes()

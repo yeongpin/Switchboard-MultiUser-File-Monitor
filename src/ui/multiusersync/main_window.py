@@ -145,6 +145,8 @@ class MainWindow(QMainWindow):
         
         # Create main layout
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setSpacing(5)
         
         # Create toolbar
         toolbar_layout = self.create_toolbar()
