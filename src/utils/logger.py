@@ -13,9 +13,10 @@ from datetime import datetime
 def setup_logger(name: str = "SwitchboardMonitor", level: int = logging.INFO) -> logging.Logger:
     """Setup main application logger"""
     
-    # Create logs directory
-    logs_dir = Path.cwd() / "logs"
-    logs_dir.mkdir(exist_ok=True)
+    # Create logs directory in user's Documents
+    documents_path = Path.home() / "Documents"
+    logs_dir = documents_path / "SwitchboardSync" / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
     
     # Create logger
     logger = logging.getLogger(name)
@@ -38,7 +39,7 @@ def setup_logger(name: str = "SwitchboardMonitor", level: int = logging.INFO) ->
     logger.addHandler(console_handler)
     
     # File handler
-    log_file = logs_dir / f"{name}_{datetime.now().strftime('%Y%m%d')}.log"
+    log_file = logs_dir / f"{name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     file_handler = logging.FileHandler(log_file, encoding='utf-8')
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)

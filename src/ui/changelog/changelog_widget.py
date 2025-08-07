@@ -62,8 +62,21 @@ class ChangelogWidget(QWidget):
                 self.logger.info(f"PyInstaller environment detected. Looking for: {changelog_path}")
             else:
                 # Running in development environment
-                changelog_path = Path(__file__).parent / "CHANGELOG.md"
-                self.logger.info(f"Development environment. Looking for: {changelog_path}")
+                # Try multiple possible locations
+                possible_paths = [
+                    Path(__file__).parent / "CHANGELOG.md",  # src/ui/changelog/CHANGELOG.md
+                    Path(__file__).parent.parent.parent.parent / "CHANGELOG.md",  # Project root
+                    Path(__file__).parent.parent.parent / "CHANGELOG.md",  # src/CHANGELOG.md
+                ]
+                
+                changelog_path = None
+                for path in possible_paths:
+                    if path.exists():
+                        changelog_path = path
+                        break
+                
+                self.logger.info(f"Development environment. Tried paths: {[str(p) for p in possible_paths]}")
+                self.logger.info(f"Found changelog at: {changelog_path}")
             
             # Try to read the file
             if changelog_path and changelog_path.exists():
