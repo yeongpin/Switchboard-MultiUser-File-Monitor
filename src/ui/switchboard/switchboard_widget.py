@@ -320,16 +320,14 @@ class SwitchboardWidget(QWidget):
     def closeEvent(self, event):
         """Handle close event"""
         self.logger.info("SwitchboardWidget closing, cleaning up...")
-        
-        # Clean up Switchboard processes
-        self.cleanup_switchboard_processes()
-        
-        # Clean up Switchboard dialog if it exists
-        if self.switchboard_dialog:
-            try:
-                if hasattr(self.switchboard_dialog, 'on_exit'):
+        try:
+            # Ask Switchboard to perform its internal shutdown first (main thread)
+            if self.switchboard_dialog and hasattr(self.switchboard_dialog, 'on_exit'):
+                try:
                     self.switchboard_dialog.on_exit()
-            except Exception as e:
-                self.logger.error(f"Error cleaning up Switchboard dialog: {e}")
-        
-        event.accept() 
+                except Exception as e:
+                    self.logger.warning(f"Switchboard on_exit failed: {e}")
+            # Then kill external helper processes
+            self.cleanup_switchboard_processes()
+        finally:
+            event.accept()

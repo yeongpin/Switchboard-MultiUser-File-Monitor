@@ -20,6 +20,7 @@ from PySide6.QtGui import QIcon
 
 from ui.multiusersync.main_window import MainWindow
 from ui.switchboard import SwitchboardWidget
+from ui.ndisplaymonitor import NDisplayMonitorTab
 from ui.changelog import ChangelogWidget
 from ui.svn import SVNWidget
 from utils.logger import setup_logger
@@ -38,13 +39,15 @@ class IntegratedMainWindow(QMainWindow):
         self.multiuser_widget = None
         self.changelog_widget = None
         self.svn_widget = None
+        self.ndisplay_widget = None
 
         # Initialize index for tab ordering
         self.index = type('Index', (), {})()
         self.index.switchboard_dialog = 0
         self.index.multiuser_widget = 1
-        self.index.svn_widget = 2
-        self.index.changelog_widget = 3
+        self.index.ndisplay_monitor = 2
+        self.index.svn_widget = 3
+        self.index.changelog_widget = 4
         
 
         self.setup_ui()
@@ -53,7 +56,7 @@ class IntegratedMainWindow(QMainWindow):
     def setup_ui(self):
         """Setup the main window UI"""
         self.setWindowTitle("Switchboard MultiUser File Monitor")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1350, 800)
         
         # Create central widget with tab layout
         central_widget = QWidget()
@@ -104,7 +107,23 @@ class IntegratedMainWindow(QMainWindow):
             placeholder.layout().addWidget(label)
             tabs_to_add.append((self.index.multiuser_widget, placeholder, "MultiUser File Monitor"))
         
-        # Initialize SVN Version Control (Tab 2)
+        # Initialize nDisplay Monitor (Tab 2)
+        try:
+            self.logger.info("Initializing nDisplay Monitor...")
+            self.ndisplay_widget = NDisplayMonitorTab()
+            tabs_to_add.append((self.index.ndisplay_monitor, self.ndisplay_widget, "nDisplay Monitor"))
+            self.logger.info("nDisplay Monitor tab added successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize nDisplay Monitor: {e}")
+            placeholder = QWidget()
+            placeholder.setLayout(QVBoxLayout())
+            from PySide6.QtWidgets import QLabel
+            label = QLabel("nDisplay Monitor not available")
+            label.setAlignment(Qt.AlignCenter)
+            placeholder.layout().addWidget(label)
+            tabs_to_add.append((self.index.ndisplay_monitor, placeholder, "nDisplay Monitor"))
+
+        # Initialize SVN Version Control (Tab 3)
         try:
             self.logger.info("Initializing SVN Version Control...")
             self.svn_widget = SVNWidget()
@@ -120,7 +139,7 @@ class IntegratedMainWindow(QMainWindow):
             placeholder.layout().addWidget(label)
             tabs_to_add.append((self.index.svn_widget, placeholder, "SVN Version Control"))
         
-        # Initialize Changelog (Tab 3)
+        # Initialize Changelog (Tab 4)
         try:
             self.logger.info("Initializing Changelog...")
             self.changelog_widget = ChangelogWidget()
@@ -232,8 +251,42 @@ class IntegratedMainWindow(QMainWindow):
         self.hide()
         event.accept()  # Accept the event first
         
-        # Run cleanup in background
+        # Close UI widgets on the main thread to avoid timer warnings
+        self.close_ui_widgets_on_main_thread()
+        
+        # Run process cleanup in background
         self.run_cleanup_in_background()
+
+    def close_ui_widgets_on_main_thread(self):
+        """Close child widgets safely on the GUI thread."""
+        try:
+            if self.multiuser_widget:
+                try:
+                    self.multiuser_widget.close()
+                except Exception as e:
+                    self.logger.error(f"Error closing MultiUser widget: {e}")
+            if self.switchboard_widget:
+                try:
+                    self.switchboard_widget.close()
+                except Exception as e:
+                    self.logger.error(f"Error closing Switchboard widget: {e}")
+            if self.changelog_widget and hasattr(self.changelog_widget, 'close'):
+                try:
+                    self.changelog_widget.close()
+                except Exception as e:
+                    self.logger.error(f"Error closing Changelog widget: {e}")
+            if self.svn_widget and hasattr(self.svn_widget, 'close'):
+                try:
+                    self.svn_widget.close()
+                except Exception as e:
+                    self.logger.error(f"Error closing SVN widget: {e}")
+            if self.ndisplay_widget and hasattr(self.ndisplay_widget, 'close'):
+                try:
+                    self.ndisplay_widget.close()
+                except Exception as e:
+                    self.logger.error(f"Error closing nDisplay widget: {e}")
+        except Exception as e:
+            self.logger.error(f"Error closing widgets: {e}")
     
     def run_cleanup_in_background(self):
         """Run cleanup operations in background thread"""
@@ -242,49 +295,7 @@ class IntegratedMainWindow(QMainWindow):
         def cleanup_thread():
             """Background cleanup function"""
             try:
-                # Clean up MultiUser widget
-                if self.multiuser_widget:
-                    try:
-                        # Create a dummy event for cleanup
-                        from PySide6.QtGui import QCloseEvent
-                        dummy_event = QCloseEvent()
-                        self.multiuser_widget.closeEvent(dummy_event)
-                    except Exception as e:
-                        self.logger.error(f"Error closing MultiUser widget: {e}")
-                
-                # Clean up Switchboard widget
-                if self.switchboard_widget:
-                    try:
-                        # Create a dummy event for cleanup
-                        from PySide6.QtGui import QCloseEvent
-                        dummy_event = QCloseEvent()
-                        self.switchboard_widget.closeEvent(dummy_event)
-                    except Exception as e:
-                        self.logger.error(f"Error closing Switchboard widget: {e}")
-                
-                # Clean up Changelog widget
-                if self.changelog_widget:
-                    try:
-                        # Create a dummy event for cleanup
-                        from PySide6.QtGui import QCloseEvent
-                        dummy_event = QCloseEvent()
-                        if hasattr(self.changelog_widget, 'closeEvent'):
-                            self.changelog_widget.closeEvent(dummy_event)
-                    except Exception as e:
-                        self.logger.error(f"Error closing Changelog widget: {e}")
-                
-                # Clean up SVN widget
-                if self.svn_widget:
-                    try:
-                        # Create a dummy event for cleanup
-                        from PySide6.QtGui import QCloseEvent
-                        dummy_event = QCloseEvent()
-                        if hasattr(self.svn_widget, 'closeEvent'):
-                            self.svn_widget.closeEvent(dummy_event)
-                    except Exception as e:
-                        self.logger.error(f"Error closing SVN widget: {e}")
-                
-                # Clean up all processes
+                # Clean up all processes only (no UI ops in background thread)
                 self.cleanup_all_processes()
                 
                 self.logger.info("Background cleanup completed")
