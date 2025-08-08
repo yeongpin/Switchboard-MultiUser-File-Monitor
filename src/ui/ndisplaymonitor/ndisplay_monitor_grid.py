@@ -137,7 +137,7 @@ class NDisplayMonitorGrid(QWidget):
 
     def _full_refresh(self):
         try:
-            from switchboard.message_protocol import SyncStatusRequestFlags
+            from switchboard.message_protocol import SyncStatusRequestFlags # type: ignore
             self.monitor.poll_sync_status(SyncStatusRequestFlags.all(), all=True)
         except Exception as exc:
             self.logger.error(f"Full refresh failed: {exc}")
@@ -145,7 +145,7 @@ class NDisplayMonitorGrid(QWidget):
     def _iter_ndisplay_devices(self):
         # Devices tracked by this monitor are nDisplay, but we still guard
         try:
-            from switchboard.devices.ndisplay.plugin_ndisplay import DevicenDisplay
+            from switchboard.devices.ndisplay.plugin_ndisplay import DevicenDisplay # type: ignore
             for dd in self.monitor.devicedatas.values():
                 device = dd.get("device")
                 if device is not None and isinstance(device, DevicenDisplay):

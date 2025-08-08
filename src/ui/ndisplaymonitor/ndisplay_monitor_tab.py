@@ -81,7 +81,7 @@ class NDisplayMonitorTab(QWidget):
             monitor = None
             # Preferred: Use plugin classmethod to get the shared monitor
             try:
-                from switchboard.devices.ndisplay.plugin_ndisplay import DevicenDisplay
+                from switchboard.devices.ndisplay.plugin_ndisplay import DevicenDisplay # type: ignore
                 monitor = DevicenDisplay.create_monitor_if_necessary()
             except Exception as inner_exc:
                 self.logger.info(f"DevicenDisplay monitor path failed, falling back: {inner_exc}")
@@ -89,7 +89,7 @@ class NDisplayMonitorTab(QWidget):
             # Fallback: create a standalone monitor (will show empty until devices connect)
             if monitor is None:
                 try:
-                    from switchboard.devices.ndisplay.ndisplay_monitor import nDisplayMonitor
+                    from switchboard.devices.ndisplay.ndisplay_monitor import nDisplayMonitor # type: ignore
                     monitor = nDisplayMonitor(None)
                 except Exception as inner2_exc:
                     raise RuntimeError(f"Could not create nDisplay monitor: {inner2_exc}")
