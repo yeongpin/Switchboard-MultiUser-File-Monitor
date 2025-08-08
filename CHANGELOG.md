@@ -1,3 +1,9 @@
+### v1.3.5  
+#### 2025/08/28  
+- 🛠️ **Logger 等級過濾修正**：下拉改為直接控制處理器層級，切換 DEBUG/INFO/WARNING/ERROR 立即生效。  
+- 🧰 **Autoscroll 修正**：修正 QTextCursor 調用錯誤，Auto‑scroll 穩定工作。  
+- ⌨️ **Console Bar**：在 nDisplay Monitor 底部新增 Console 指令列，支援自動完成與歷史。  
+
 ### v1.3.1  
 #### 2025/08/22  
 - 🧩 **nDisplay Monitor 改進**：每張卡片提供連線/斷線切換按鈕（優先使用 `icon_connect.png`/`icon_connected.png`），工具列提供 Connect/Disconnect All 單一切換按鈕並自動更新狀態。  

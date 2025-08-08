@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSplitter
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 
@@ -59,6 +59,10 @@ class NDisplayMonitorTab(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
+        # Splitter: top = grid, bottom = logger
+        self.splitter = QSplitter(Qt.Vertical)
+        self.layout.addWidget(self.splitter)
+
         self.loading_label = QLabel("Initializing nDisplay Monitor...")
         self.loading_label.setAlignment(Qt.AlignCenter)
         self.loading_label.setFont(QFont("Segoe UI", 12))
@@ -67,7 +71,7 @@ class NDisplayMonitorTab(QWidget):
             QLabel { color: #7f8c8d; padding: 40px; background-color: #222222; }
             """
         )
-        self.layout.addWidget(self.loading_label)
+        self.splitter.addWidget(self.loading_label)
 
     def _initialize_grid(self):
         try:
@@ -93,8 +97,25 @@ class NDisplayMonitorTab(QWidget):
             from .ndisplay_monitor_grid import NDisplayMonitorGrid
             grid_widget = NDisplayMonitorGrid(monitor, parent=self)
 
+            from .ndisplay_logger_widget import NDisplayLoggerWidget
+            from .ndisplay_console_bar import NDisplayConsoleBar
+            logger_widget = NDisplayLoggerWidget(parent=self)
+            console_bar = NDisplayConsoleBar(monitor, parent=self)
+
             self.loading_label.deleteLater()
-            self.layout.addWidget(grid_widget)
+            self.splitter.insertWidget(0, grid_widget)
+            # Put a small composite under: console bar above logger panel
+            from PySide6.QtWidgets import QWidget, QVBoxLayout
+            bottom = QWidget()
+            bl = QVBoxLayout(bottom)
+            bl.setContentsMargins(0, 0, 0, 0)
+            bl.setSpacing(2)
+            bl.addWidget(console_bar)
+            bl.addWidget(logger_widget)
+
+
+            self.splitter.insertWidget(1, bottom)
+            self.splitter.setSizes([500, 400])
             self.monitor = monitor
 
         except Exception as exc:
