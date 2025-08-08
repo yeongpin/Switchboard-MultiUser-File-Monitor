@@ -16,7 +16,7 @@ sys.path.insert(0, str(current_dir))
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QVBoxLayout, QWidget
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QGuiApplication
 
 from ui.multiusersync.main_window import MainWindow
 from ui.switchboard import SwitchboardWidget
@@ -24,6 +24,20 @@ from ui.ndisplaymonitor import NDisplayMonitorTab
 from ui.changelog import ChangelogWidget
 from ui.svn import SVNWidget
 from utils.logger import setup_logger
+
+# Get version - handle both direct run and packaged scenarios
+try:
+    from src import __version__
+except ImportError:
+    try:
+        # When running from src directory
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from __init__ import __version__
+    except ImportError:
+        # Fallback version
+        __version__ = "1.0.0"
 
 
 class IntegratedMainWindow(QMainWindow):
@@ -55,8 +69,10 @@ class IntegratedMainWindow(QMainWindow):
         
     def setup_ui(self):
         """Setup the main window UI"""
-        self.setWindowTitle("Switchboard MultiUser File Monitor")
-        self.setGeometry(100, 100, 1350, 800)
+        self.setWindowTitle("Switchboard MultiUser File Monitor" + " " + __version__)
+        # Default size then center on screen
+        self.resize(1350, 800)
+        self.center_on_screen()
         
         # Create central widget with tab layout
         central_widget = QWidget()
@@ -68,6 +84,19 @@ class IntegratedMainWindow(QMainWindow):
         # Create tab widget
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
+
+    def center_on_screen(self):
+        """Center the main window on the current screen."""
+        try:
+            screen = self.screen() or QGuiApplication.primaryScreen()
+            if screen is None:
+                return
+            rect = screen.availableGeometry()
+            x = int(rect.center().x() - self.width() / 2)
+            y = int(rect.center().y() - self.height() / 2)
+            self.move(x, y)
+        except Exception:
+            pass
         
     def initialize_tabs(self):
         """Initialize the tab widgets"""

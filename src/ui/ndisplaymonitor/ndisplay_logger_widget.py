@@ -91,7 +91,7 @@ class NDisplayLoggerWidget(QWidget):
         self.text = QTextEdit()
         self.text.setReadOnly(True)
         self.text.setLineWrapMode(QTextEdit.WidgetWidth)
-        self.text.setStyleSheet("QTextEdit { background: #111; color: #ddd; font: 11px Consolas, 'Courier New', monospace; }")
+        self.text.setStyleSheet("QTextEdit { background: #242424; color: #ddd; font: 11px Consolas, 'Courier New', monospace; }")
         layout.addWidget(self.text)
 
     # ----------------------------- Behavior -----------------------------
