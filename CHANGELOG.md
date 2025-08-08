@@ -1,3 +1,11 @@
+### v1.3.1  
+#### 2025/08/22  
+- 🧩 **nDisplay Monitor 改進**：每張卡片提供連線/斷線切換按鈕（優先使用 `icon_connect.png`/`icon_connected.png`），工具列提供 Connect/Disconnect All 單一切換按鈕並自動更新狀態。  
+- 🟢 **狀態燈修正**：左側狀態燈改用 `status_red.png`/`status_green.png` 並正確依連線狀態即時變化。  
+- 🔄 **即時刷新**：連線/斷線後強制刷新卡片與工具列，保證 UI 與實際狀態一致。  
+- 🧼 **關閉行為優化**：關閉程式時自動斷開所有 nDisplay 連線，避免殘留行程。  
+- 📝 **日誌統一**：重構 logger，統一由根 logger 寫入檔案與主控台，子模組透過 propagate 輸出，日誌更完整。  
+
 ### v1.3.0  
 #### 2025/08/20  
 - 🚀 **新增 nDisplay Monitor 標籤頁**：採用卡片式網格（自適應列數），在主視窗索引 2 位置。  
