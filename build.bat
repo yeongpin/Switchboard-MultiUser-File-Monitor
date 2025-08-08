@@ -49,6 +49,7 @@ python -m PyInstaller ^
     --add-data "src/ui/multiusersync/images;ui/multiusersync/images" ^
     --add-data "src/external/sync_sandbox.bat;external" ^
     --add-data "CHANGELOG.md;ui/changelog" ^
+    --add-data "src/ui/ndisplaymonitor/images;ui/ndisplaymonitor/images" ^
     --distpath "dist" ^
     --workpath "build" ^
     --clean ^
