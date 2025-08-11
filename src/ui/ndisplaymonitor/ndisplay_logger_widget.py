@@ -11,7 +11,7 @@ import logging
 from typing import Optional
 
 from PySide6.QtCore import QObject, Signal, Qt
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QTextCursor, QSyntaxHighlighter, QTextCharFormat, QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QComboBox,
     QCheckBox, QLabel, QPushButton
@@ -94,6 +94,12 @@ class NDisplayLoggerWidget(QWidget):
         self.text.setStyleSheet("QTextEdit { background: #242424; color: #ddd; font: 11px Consolas, 'Courier New', monospace; }")
         layout.addWidget(self.text)
 
+        # Attach syntax highlighter to colorize by severity
+        try:
+            self._highlighter = _LogHighlighter(self.text.document())
+        except Exception:
+            self._highlighter = None
+
     # ----------------------------- Behavior -----------------------------
     def attach(self):
         if self._attached:
@@ -158,4 +164,28 @@ class NDisplayLoggerWidget(QWidget):
         self.detach()
         return super().closeEvent(event)
 
+
+
+class _LogHighlighter(QSyntaxHighlighter):
+    """Colors log lines in QTextEdit based on severity keywords."""
+    def __init__(self, parent_doc):
+        super().__init__(parent_doc)
+        self.fmt_info = QTextCharFormat(); self.fmt_info.setForeground(QColor('#B1B1B1'))
+        self.fmt_warning = QTextCharFormat(); self.fmt_warning.setForeground(QColor('#FFD166'))
+        self.fmt_error = QTextCharFormat(); self.fmt_error.setForeground(QColor('#FF6B6B'))
+        self.fmt_success = QTextCharFormat(); self.fmt_success.setForeground(QColor('#6FCF97'))
+        self.fmt_debug = QTextCharFormat(); self.fmt_debug.setForeground(QColor('#7f8c8d'))
+
+    def highlightBlock(self, text: str):
+        upper = text.upper()
+        if 'SUCCESS' in upper:
+            self.setFormat(0, len(text), self.fmt_success)
+        elif 'ERROR' in upper or 'EXCEPTION' in upper or 'TRACEBACK' in upper:
+            self.setFormat(0, len(text), self.fmt_error)
+        elif 'WARN' in upper:
+            self.setFormat(0, len(text), self.fmt_warning)
+        elif 'DEBUG' in upper:
+            self.setFormat(0, len(text), self.fmt_debug)
+        else:
+            self.setFormat(0, len(text), self.fmt_info)
 

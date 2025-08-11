@@ -1,3 +1,19 @@
+### v1.4.2  
+#### 2025/09/08  
+- 🎨 **Logger 著色（SVN）**：`SVNWidget` 的 Operation Log 新增語法高亮（DEBUG/WARNING/ERROR/SUCCESS/INFO），與 Switchboard New 與 nDisplay Monitor 保持一致。  
+- 🧩 **日誌管線統一**：附加至 Python root logger 的 handler，透過 Qt 訊號驅動 UI，避免重複 handler 並確保等級過濾一致。  
+- 🧼 **輸出方式調整**：`log_message()` 以純文字輸出，顏色由高亮器處理；保留自動捲動與檔案記錄。  
+- 🖼️ **外觀一致性**：Logger 背景與字體樣式統一深色主題。  
+
+### v1.4.1  
+#### 2025/09/05  
+- 🎨 **Logger 著色**：Switchboard New 的日誌加入語法高亮（DEBUG/WARN/ERROR/SUCCESS），載入完成即刻套用顏色（rehighlight）。未匹配等級的行以資訊色顯示，避免全灰。  
+- 🛡️ **初始化穩定性**：
+  - `fetch_devices` 以安全 fallback（lambda）避免早期建構期找不到 `_fetch_unreal_devices/_fetch_ndisplay_devices`。  
+  - 調整方法與類別順序，修復 `'_is_device_connected'` 找不到的競態。  
+- 🖥️ **Loading 覆蓋層優化**：全頁遮罩穩定覆蓋內容，當鏡像選單成功或啟用本地後備選單時即自動隱藏。  
+- 🧰 **小調整**：Multi‑user 「+」 改為 `icon_add.png`，尺寸與樣式與工具列保持一致。  
+
 ### v1.4.0  
 #### 2025/09/02  
 - 🖥️ **Switchboard New 全頁 Loading**：改為全頁半透明遮罩並置中顯示提示，初始化完成或超時自動隱藏。  

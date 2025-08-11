@@ -11,7 +11,8 @@ from typing import Optional, Iterable
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, QSize
-from PySide6.QtGui import QFont, QAction, QIcon
+from PySide6.QtGui import QFont, QAction, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor
+import re
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QSplitter, QFrame, QHBoxLayout,
     QCheckBox, QComboBox, QPushButton, QPlainTextEdit, QLineEdit, QSpacerItem, QSizePolicy,
@@ -21,6 +22,43 @@ from PySide6.QtCore import QSortFilterProxyModel
 
 from utils.logger import get_logger
 from .device_card_grid import DeviceCardGrid
+
+
+# Standalone log highlighter (module-level) to avoid nesting issues
+class _LogHighlighter(QSyntaxHighlighter):
+    """Simple log highlighter: colors lines by severity keywords."""
+    def __init__(self, parent_doc):
+        super().__init__(parent_doc)
+        # Define formats
+        self.fmt_info = QTextCharFormat()
+        self.fmt_info.setForeground(QColor('#B1B1B1'))
+
+        self.fmt_warning = QTextCharFormat()
+        self.fmt_warning.setForeground(QColor('#FFD166'))
+
+        self.fmt_error = QTextCharFormat()
+        self.fmt_error.setForeground(QColor('#FF6B6B'))
+
+        self.fmt_success = QTextCharFormat()
+        self.fmt_success.setForeground(QColor('#6FCF97'))
+
+        self.fmt_debug = QTextCharFormat()
+        self.fmt_debug.setForeground(QColor('#7f8c8d'))
+
+    def highlightBlock(self, text: str):
+        upper = text.upper()
+        # Common prefixes like "[16:51:42] [DEBUG]"
+        if re.search(r"\bSUCCESS\b", upper):
+            self.setFormat(0, len(text), self.fmt_success)
+        elif re.search(r"\b(ERROR|EXCEPTION|TRACEBACK)\b", upper):
+            self.setFormat(0, len(text), self.fmt_error)
+        elif re.search(r"\b(WARN|WARNING)\b", upper):
+            self.setFormat(0, len(text), self.fmt_warning)
+        elif re.search(r"\bDEBUG\b", upper):
+            self.setFormat(0, len(text), self.fmt_debug)
+        else:
+            # info/default
+            self.setFormat(0, len(text), self.fmt_info)
 
 
 class SwitchboardNewTab(QWidget):
@@ -220,6 +258,13 @@ class SwitchboardNewTab(QWidget):
         """)
         
         logger_layout.addWidget(self.base_console)
+        
+        # Attach syntax highlighter to colorize log lines by severity
+        try:
+            self._log_highlighter = _LogHighlighter(self.base_console.document())
+            self._log_highlighter.rehighlight()
+        except Exception:
+            pass
         
         # Bottom status bar
         bottom_layout = QHBoxLayout()

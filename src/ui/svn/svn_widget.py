@@ -14,8 +14,9 @@ from PySide6.QtWidgets import (
     QTextEdit, QTreeWidget, QTreeWidgetItem, QGroupBox,
     QProgressBar, QMessageBox, QSplitter, QHeaderView, QComboBox
 )
-from PySide6.QtCore import Qt, QThread, Signal, QTimer
-from PySide6.QtGui import QFont, QIcon, QColor
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QObject
+import logging
+from PySide6.QtGui import QFont, QIcon, QColor, QTextCursor, QSyntaxHighlighter, QTextCharFormat
 
 from utils.logger import get_logger
 
@@ -191,6 +192,49 @@ class SVNWorker(QThread):
                     log_entries.append(current_entry)
         
         return log_entries
+
+
+class _QtLogEmitter(QObject):
+    sig_record = Signal(str)
+
+
+class QtLogHandler(logging.Handler):
+    """Logging handler that forwards formatted records to a Qt signal."""
+
+    def __init__(self):
+        super().__init__()
+        self.emitter = _QtLogEmitter()
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self.format(record)
+        except Exception:
+            msg = record.getMessage()
+        self.emitter.sig_record.emit(msg)
+
+
+class _LogHighlighter(QSyntaxHighlighter):
+    """Colors log lines by severity keywords for QTextEdit."""
+    def __init__(self, parent_doc):
+        super().__init__(parent_doc)
+        self.fmt_info = QTextCharFormat(); self.fmt_info.setForeground(QColor('#B1B1B1'))
+        self.fmt_warning = QTextCharFormat(); self.fmt_warning.setForeground(QColor('#FFD166'))
+        self.fmt_error = QTextCharFormat(); self.fmt_error.setForeground(QColor('#FF6B6B'))
+        self.fmt_success = QTextCharFormat(); self.fmt_success.setForeground(QColor('#6FCF97'))
+        self.fmt_debug = QTextCharFormat(); self.fmt_debug.setForeground(QColor('#7f8c8d'))
+
+    def highlightBlock(self, text: str):
+        upper = text.upper()
+        if 'SUCCESS' in upper:
+            self.setFormat(0, len(text), self.fmt_success)
+        elif 'ERROR' in upper or 'EXCEPTION' in upper or 'TRACEBACK' in upper:
+            self.setFormat(0, len(text), self.fmt_error)
+        elif 'WARN' in upper:
+            self.setFormat(0, len(text), self.fmt_warning)
+        elif 'DEBUG' in upper:
+            self.setFormat(0, len(text), self.fmt_debug)
+        else:
+            self.setFormat(0, len(text), self.fmt_info)
 
 
 class SVNWidget(QWidget):
@@ -447,7 +491,15 @@ class SVNWidget(QWidget):
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setFont(QFont("Courier", 9))
+        self.log_text.setStyleSheet("QTextEdit { background: #242424; color: #ddd; }")
         log_group_layout.addWidget(self.log_text)
+
+        # Attach syntax highlighter & root logger handler
+        try:
+            self._log_highlighter = _LogHighlighter(self.log_text.document())
+        except Exception:
+            self._log_highlighter = None
+        self._attach_root_logger()
         
         log_layout.addWidget(log_group)
         
@@ -627,35 +679,47 @@ class SVNWidget(QWidget):
             self.progress_bar.setValue(current)
     
     def log_message(self, message: str, level: str = "I"):
-        """Add message to log with color coding"""
+        """Add message to log (plain text). Coloring handled by highlighter."""
         from datetime import datetime
         timestamp = datetime.now().strftime("%H:%M:%S")
-        
-        # Color coding based on level
-        if level == "D":  # Debug
-            color = "#888888"
-        elif level == "I":  # Info
-            color = "#ffffff"
-        elif level == "S":  # Success
-            color = "#00ff00"
-        elif level == "W":  # Warning
-            color = "#ffff00"
-        elif level == "E":  # Error
-            color = "#ff0000"
-        else:
-            color = "#ffffff"
-        
-        formatted_message = f'<span style="color: #cccccc;">[{timestamp}] [{level}]</span> <span style="color: {color};">{message}</span>'
-        
-        # Add to log text using HTML
-        cursor = self.log_text.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        self.log_text.setTextCursor(cursor)
-        self.log_text.insertHtml(formatted_message + "<br>")
-        
-        # Scroll to bottom
-        scrollbar = self.log_text.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-        
-        # Also log to file
-        self.logger.info(f"SVN: {message}") 
+        level_map = {
+            "D": "DEBUG",
+            "I": "INFO",
+            "S": "SUCCESS",
+            "W": "WARNING",
+            "E": "ERROR",
+        }
+        lvl = level_map.get(level, "INFO")
+        line = f"[{timestamp}] [{lvl}] {message}"
+        self.log_text.append(line)
+        # autoscroll
+        self.log_text.moveCursor(QTextCursor.MoveOperation.End)
+        # also log to python logger
+        getattr(self.logger, 'info' if level in ('I', 'S') else 'debug' if level == 'D' else 'warning' if level == 'W' else 'error')(message)
+
+    # ---- root logger attachment ----
+    def _attach_root_logger(self):
+        try:
+            handler = QtLogHandler()
+            import logging
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                          datefmt='%H:%M:%S')
+            handler.setFormatter(formatter)
+            handler.setLevel(logging.DEBUG)
+            handler.emitter.sig_record.connect(self._on_root_log_record)
+            root_logger = logging.getLogger()
+            if not any(isinstance(h, QtLogHandler) for h in root_logger.handlers):
+                root_logger.addHandler(handler)
+            if root_logger.level == logging.NOTSET or root_logger.level > logging.DEBUG:
+                root_logger.setLevel(logging.DEBUG)
+            self._root_logger = root_logger
+            self._root_handler = handler
+        except Exception:
+            self._root_logger = None
+            self._root_handler = None
+
+    def _on_root_log_record(self, text: str):
+        if not text:
+            return
+        self.log_text.append(text)
+        self.log_text.moveCursor(QTextCursor.MoveOperation.End)
