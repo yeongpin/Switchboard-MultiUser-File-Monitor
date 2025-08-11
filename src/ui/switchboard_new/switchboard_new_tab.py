@@ -317,7 +317,10 @@ class SwitchboardNewTab(QWidget):
         self.mu_session_lineedit.setPlaceholderText("SessionName")
         mu_layout.addWidget(self.mu_session_lineedit, 1)
 
-        self.mu_inc_btn = QPushButton("+")
+        self._icon_add = self._get_local_icon('icon_add.png') or QIcon(':/icons/images/icon_add.png')
+        self.mu_inc_btn = QPushButton()
+        self.mu_inc_btn.setIcon(self._icon_add)
+        self.mu_inc_btn.setIconSize(QSize(14, 14))
         self.mu_inc_btn.setToolTip("Increment the multi-user server session name")
         self.mu_inc_btn.setFixedSize(22, 22)
         self.mu_inc_btn.setStyleSheet("QPushButton { background-color: transparent; border: 1px solid #555; border-radius: 3px; color:#dcdcdc } QPushButton:pressed { background-color: rgba(255,255,255,0.07); }")
