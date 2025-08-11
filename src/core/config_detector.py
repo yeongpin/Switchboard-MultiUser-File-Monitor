@@ -177,6 +177,19 @@ class ConfigDetector:
         """Detect currently loaded Switchboard configuration"""
         config_mgr, settings = self._get_config_manager()
         if not config_mgr or not settings:
+            # Fallback: try reading user_settings.json directly
+            try:
+                from pathlib import Path
+                user_settings_path = Path(__file__).parents[2] / 'Switchboard' / 'switchboard' / 'configs' / 'user_settings.json'
+                if user_settings_path.exists():
+                    import json
+                    with open(user_settings_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if cfg := data.get('config'):
+                        cfg_path = (Path(__file__).parents[2] / 'Switchboard' / 'switchboard' / 'configs' / cfg)
+                        return self.load_config_by_path(cfg_path) or None
+            except Exception:
+                pass
             return None
             
         try:
@@ -199,11 +212,26 @@ class ConfigDetector:
                 elif hasattr(config_mgr, 'current_config'):
                     current_config_path = config_mgr.current_config
                 else:
-                    # Try to find any available config file
-                    available_configs = self.get_available_configs()
-                    if available_configs:
-                        current_config_path = available_configs[0]
-                        self.logger.info(f"Using first available config: {current_config_path}")
+                    # Try to read user_settings.json before falling back to first
+                    try:
+                        user_settings_path = config_mgr.user_settings_file_path if hasattr(config_mgr, 'user_settings_file_path') else None
+                        if user_settings_path and Path(user_settings_path).exists():
+                            with open(user_settings_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                            if cfg := data.get('config'):
+                                try:
+                                    # Resolve relative to configs dir
+                                    current_config_path = config_mgr.get_absolute_config_path(cfg)
+                                except Exception:
+                                    current_config_path = cfg
+                    except Exception:
+                        pass
+                    if not current_config_path:
+                        # Finally try any available config file
+                        available_configs = self.get_available_configs()
+                        if available_configs:
+                            current_config_path = available_configs[0]
+                            self.logger.info(f"Using first available config: {current_config_path}")
                     else:
                         self.logger.warning("No config files found")
                         return None
@@ -229,6 +257,53 @@ class ConfigDetector:
         except Exception as e:
             self.logger.error(f"Error detecting config: {e}")
             return None
+
+    def _default_user_settings_path(self) -> Optional[Path]:
+        try:
+            return Path(__file__).parents[2] / 'Switchboard' / 'switchboard' / 'configs' / 'user_settings.json'
+        except Exception:
+            return None
+
+    def get_last_used_config_path(self) -> Optional[Path]:
+        """Return last-used config path from Switchboard user settings, if available."""
+        try:
+            config_mgr, settings = self._get_config_manager()
+            # Prefer live SETTINGS when available
+            if settings and hasattr(settings, 'CONFIG') and getattr(settings, 'CONFIG'):
+                cfg = getattr(settings, 'CONFIG')
+                try:
+                    if config_mgr and hasattr(config_mgr, 'get_absolute_config_path'):
+                        abs_path = config_mgr.get_absolute_config_path(cfg)
+                        return abs_path if abs_path and Path(abs_path).exists() else Path(abs_path)
+                except Exception:
+                    pass
+                return Path(str(cfg))
+
+            # Fallback to reading user_settings.json directly
+            user_settings_path = None
+            if config_mgr and hasattr(config_mgr, 'user_settings_file_path'):
+                user_settings_path = config_mgr.user_settings_file_path
+            if not user_settings_path:
+                user_settings_path = self._default_user_settings_path()
+
+            if user_settings_path and Path(user_settings_path).exists():
+                with open(user_settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                cfg = data.get('config')
+                if cfg:
+                    try:
+                        if config_mgr and hasattr(config_mgr, 'get_absolute_config_path'):
+                            return config_mgr.get_absolute_config_path(cfg)
+                    except Exception:
+                        pass
+                    # If relative, join with configs dir
+                    if config_mgr and hasattr(config_mgr, 'config_dir'):
+                        candidate = Path(config_mgr.config_dir) / cfg
+                        return candidate
+                    return Path(cfg)
+        except Exception as e:
+            self.logger.debug(f"get_last_used_config_path failed: {e}")
+        return None
     
     def _load_config_file(self, config_path: Path) -> Optional[Dict[str, Any]]:
         """Load configuration file"""

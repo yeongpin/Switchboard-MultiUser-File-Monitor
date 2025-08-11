@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
         
         # Initialize state flags
         self._detecting_config = False
+        self._during_detection = False
         self._monitoring_started = False
         
         # Setup UI
@@ -410,6 +411,7 @@ class MainWindow(QMainWindow):
             return
         
         self._detecting_config = True
+        self._during_detection = True
         
         self.status_label.setText("Detecting configuration...")
         self.refresh_btn.setEnabled(False)  # Disable button during detection
@@ -437,10 +439,38 @@ class MainWindow(QMainWindow):
     
     def on_configs_found(self, configs: list):
         """Handle configs found signal"""
-        # Update combo box with found configs
-        self.config_combo.clear()
-        for config_path in configs:
-            self.config_combo.addItem(str(config_path.stem), config_path)
+        # Update combo box with found configs (suppress change signal during detection)
+        self.config_combo.blockSignals(True)
+        try:
+            self.config_combo.clear()
+            for config_path in configs:
+                self.config_combo.addItem(str(config_path.stem), config_path)
+
+            # Try to select last used config if present (does not trigger load now)
+            try:
+                last_used = self.config_detector.get_last_used_config_path()
+                if last_used:
+                    for i in range(self.config_combo.count()):
+                        path = self.config_combo.itemData(i)
+                        if path and str(Path(path)) == str(Path(last_used)):
+                            self.config_combo.setCurrentIndex(i)
+                            break
+            except Exception:
+                pass
+        finally:
+            self.config_combo.blockSignals(False)
+
+        # Try to select last used config if present
+        try:
+            last_used = self.config_detector.get_last_used_config_path()
+            if last_used:
+                for i in range(self.config_combo.count()):
+                    path = self.config_combo.itemData(i)
+                    if path and str(Path(path)) == str(Path(last_used)):
+                        self.config_combo.setCurrentIndex(i)
+                        break
+        except Exception:
+            pass
         
         self.logger.debug(f"Found {len(configs)} configuration files")
     
@@ -450,7 +480,18 @@ class MainWindow(QMainWindow):
             self.load_config(current_config)
             self.log_message(f"Loaded current config: {current_config.project_name}")
         else:
-            # If no current config, try to load first available config
+            # If no current config, try to load last used from user settings
+            try:
+                last_used = self.config_detector.get_last_used_config_path()
+                if last_used:
+                    cfg = self.config_detector.load_config_by_path(Path(last_used))
+                    if cfg:
+                        self.load_config(cfg)
+                        self.log_message(f"Loaded last used config: {cfg.project_name}")
+                        return
+            except Exception:
+                pass
+            # Finally try the first available config
             if self.config_combo.count() > 0:
                 config_path = self.config_combo.itemData(0)
                 if config_path:
@@ -476,6 +517,7 @@ class MainWindow(QMainWindow):
     def on_detection_completed(self):
         """Handle detection completed signal"""
         self._detecting_config = False  # Reset detection flag
+        self._during_detection = False
         
         self.refresh_btn.setEnabled(True)  # Re-enable button
         self.refresh_btn.setText("Refresh Config")  # Restore button text
@@ -663,7 +705,8 @@ CONFIG: {config_file}"""
     
     def on_config_changed(self, config_name: str):
         """Handle config selection change"""
-        if not config_name:
+        # Ignore changes while we are populating during detection
+        if self._during_detection or not config_name:
             return
         
         config_path = self.config_combo.currentData()

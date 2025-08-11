@@ -21,6 +21,7 @@ from PySide6.QtGui import QIcon, QGuiApplication
 from ui.multiusersync.main_window import MainWindow
 from ui.switchboard import SwitchboardWidget
 from ui.ndisplaymonitor import NDisplayMonitorTab
+from ui.switchboard_new import SwitchboardNewTab
 from ui.changelog import ChangelogWidget
 from ui.svn import SVNWidget
 from utils.logger import setup_logger
@@ -57,11 +58,14 @@ class IntegratedMainWindow(QMainWindow):
 
         # Initialize index for tab ordering
         self.index = type('Index', (), {})()
-        self.index.switchboard_dialog = 0
-        self.index.multiuser_widget = 1
+        self.index.switchboard_new = 0
+        self.index.switchboard_dialog = 1
         self.index.ndisplay_monitor = 2
-        self.index.svn_widget = 3
-        self.index.changelog_widget = 4
+        self.index.multiuser_widget = 3
+        self.index.svn_widget = 4
+        self.index.changelog_widget = 5
+
+        self.active_tab = 0
         
 
         self.setup_ui()
@@ -108,7 +112,7 @@ class IntegratedMainWindow(QMainWindow):
             self.logger.info("Initializing Switchboard...")
             self.switchboard_widget = SwitchboardWidget()
             self.logger.info("Using embedded Switchboard (full interface)")
-            tabs_to_add.append((self.index.switchboard_dialog, self.switchboard_widget, "Switchboard"))
+            tabs_to_add.append((self.index.switchboard_dialog, self.switchboard_widget, "Switchboard Old"))
             self.logger.info("Switchboard tab added successfully")
         except Exception as e:
             self.logger.error(f"Failed to initialize Switchboard: {e}")
@@ -118,7 +122,7 @@ class IntegratedMainWindow(QMainWindow):
             label = QLabel("Switchboard initialization failed")
             label.setAlignment(Qt.AlignCenter)
             placeholder.layout().addWidget(label)
-            tabs_to_add.append((self.index.switchboard_dialog, placeholder, "Switchboard"))
+            tabs_to_add.append((self.index.switchboard_dialog, placeholder, "Switchboard Old"))
         
         # Initialize MultiUser File Monitor (Tab 1)
         try:
@@ -151,6 +155,22 @@ class IntegratedMainWindow(QMainWindow):
             label.setAlignment(Qt.AlignCenter)
             placeholder.layout().addWidget(label)
             tabs_to_add.append((self.index.ndisplay_monitor, placeholder, "nDisplay Monitor"))
+
+        # Initialize Switchboard New (Tab 5)
+        try:
+            self.logger.info("Initializing Switchboard New...")
+            self.switchboard_new_widget = SwitchboardNewTab()
+            tabs_to_add.append((self.index.switchboard_new, self.switchboard_new_widget, "Switchboard New"))
+            self.logger.info("Switchboard New tab added successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize Switchboard New: {e}")
+            placeholder = QWidget()
+            placeholder.setLayout(QVBoxLayout())
+            from PySide6.QtWidgets import QLabel
+            label = QLabel("Switchboard New not available")
+            label.setAlignment(Qt.AlignCenter)
+            placeholder.layout().addWidget(label)
+            tabs_to_add.append((self.index.switchboard_new, placeholder, "Switchboard New"))
 
         # Initialize SVN Version Control (Tab 3)
         try:
@@ -188,6 +208,17 @@ class IntegratedMainWindow(QMainWindow):
         tabs_to_add.sort(key=lambda x: x[0])  # Sort by index
         for index, widget, title in tabs_to_add:
             self.tab_widget.addTab(widget, title)
+        # Set active tab on startup
+        try:
+            total_tabs = self.tab_widget.count()
+            target = int(self.active_tab)
+            if target < 0:
+                target = 0
+            if target >= total_tabs:
+                target = total_tabs - 1 if total_tabs > 0 else 0
+            self.tab_widget.setCurrentIndex(target)
+        except Exception:
+            pass
     
     def cleanup_all_processes(self):
         """Clean up all related processes"""
@@ -222,12 +253,30 @@ class IntegratedMainWindow(QMainWindow):
                             except Exception as e:
                                 self.logger.error(f"Failed to kill process {pid}: {e}")
             
-            # Additional cleanup: kill only Switchboard-related Python processes
+            # Additional cleanup: kill Switchboard-related Python processes and device listeners
             try:
                 # Get current process ID to avoid killing ourselves
                 current_pid = os.getpid()
                 
-                # Only kill Python processes that are actually using Switchboard ports or have Switchboard in their command line
+                # First, try to disconnect all devices gracefully
+                try:
+                    if hasattr(self, 'switchboard_widget') and self.switchboard_widget:
+                        # Try to access device manager through switchboard widget
+                        from ui.switchboard.switchboard_widget import get_current_switchboard_dialog
+                        dialog = get_current_switchboard_dialog()
+                        if dialog and hasattr(dialog, 'device_manager'):
+                            self.logger.info("Disconnecting all devices...")
+                            devices = dialog.device_manager.devices()
+                            for device in devices:
+                                try:
+                                    if hasattr(device, 'disconnect_listener'):
+                                        device.disconnect_listener()
+                                except Exception:
+                                    pass
+                except Exception as e:
+                    self.logger.warning(f"Could not gracefully disconnect devices: {e}")
+                
+                # Kill Python processes that are Switchboard-related
                 result = subprocess.run(['wmic', 'process', 'where', 'name="python.exe"', 'get', 'processid,commandline', '/format:csv'], 
                                       capture_output=True, text=True, check=False,
                                       startupinfo=startupinfo, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -245,7 +294,8 @@ class IntegratedMainWindow(QMainWindow):
                                     if (pid != current_pid and 
                                         ('switchboard' in commandline or 
                                          'sbl_helper' in commandline or
-                                         'listener' in commandline)):
+                                         'listener' in commandline or
+                                         'unreal' in commandline)):
                                         
                                         subprocess.run(['taskkill', '/F', '/PID', str(pid)], 
                                                      capture_output=True, check=False,
@@ -253,6 +303,12 @@ class IntegratedMainWindow(QMainWindow):
                                         self.logger.info(f"Killed Switchboard-related Python process {pid}")
                                 except (ValueError, IndexError):
                                     continue
+                                    
+                # Also kill any listener.exe processes
+                subprocess.run(['taskkill', '/F', '/IM', 'listener.exe'], 
+                             capture_output=True, check=False, 
+                             startupinfo=startupinfo, creationflags=subprocess.CREATE_NO_WINDOW)
+                             
             except Exception as e:
                 self.logger.error(f"Error in additional cleanup: {e}")
                                 

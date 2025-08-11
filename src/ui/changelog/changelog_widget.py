@@ -206,9 +206,9 @@ class ChangelogWidget(QWidget):
         # Add items
         for item in items:
             # Process markdown bold syntax (**text**)
-            self.logger.info(f"Processing item: {item}")
+            # self.logger.info(f"Processing item: {item}")
             processed_item = self.process_markdown_bold(item)
-            self.logger.info(f"Processed item: {processed_item}")
+            # self.logger.info(f"Processed item: {processed_item}")
             
             item_label = QLabel(f"• {processed_item}")
             item_label.setWordWrap(True)

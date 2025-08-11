@@ -37,6 +37,13 @@ if not switchboard_found:
 
 from utils.logger import get_logger
 
+# Global reference to current switchboard dialog for cleanup
+_CURRENT_SWITCHBOARD_DIALOG = None
+
+def get_current_switchboard_dialog():
+    """Get the current switchboard dialog instance."""
+    return _CURRENT_SWITCHBOARD_DIALOG
+
 print("SwitchboardWidget module loaded successfully")
 
 
@@ -52,8 +59,8 @@ class SwitchboardWidget(QWidget):
         print("SwitchboardWidget.__init__ called")
         self.setup_ui()
         
-        # Use a timer to delay initialization
-        QTimer.singleShot(500, self.initialize_switchboard)
+        # Use a timer to delay initialization slightly so the rest of UI can paint
+        QTimer.singleShot(50, self.initialize_switchboard)
         
     def setup_ui(self):
         """Setup the widget UI"""
@@ -89,18 +96,25 @@ class SwitchboardWidget(QWidget):
             
             # Import Switchboard components
             from switchboard import switchboard_scripting
-            from switchboard.switchboard_dialog import SwitchboardDialog
-            from switchboard.config import SETTINGS, CONFIG
+            from switchboard.switchboard_dialog import SwitchboardDialog # type: ignore
+            from switchboard.config import SETTINGS, CONFIG # type: ignore
             
             # Fix QToolTip issue before creating SwitchboardDialog
             self.fix_qtooltip_issue()
             
             # Initialize SETTINGS and CONFIG like in main Switchboard application
             self.logger.info("Initializing Switchboard settings and config...")
-            SETTINGS.init()
+            # Fast-path: avoid redundant init if already initialized
+            if not hasattr(SETTINGS, 'ADDRESS'):
+                SETTINGS.init()
             
-            # Try to find a default config or create one
-            config_path = self.find_or_create_default_config()
+            # Try to use last used config from SETTINGS; fallback to discovery
+            try:
+                last_config = getattr(SETTINGS, 'CONFIG', None)
+            except Exception:
+                last_config = None
+
+            config_path = last_config or self.find_or_create_default_config()
             if config_path:
                 CONFIG.init(config_path)
                 self.logger.info(f"Initialized CONFIG with: {config_path}")
@@ -116,6 +130,10 @@ class SwitchboardWidget(QWidget):
             self.logger.info("Creating SwitchboardDialog...")
             self.switchboard_dialog = SwitchboardDialog(self.script_manager)
             self.logger.info("SwitchboardDialog created successfully")
+            
+            # Store global reference for cleanup
+            global _CURRENT_SWITCHBOARD_DIALOG
+            _CURRENT_SWITCHBOARD_DIALOG = self.switchboard_dialog
             
             # Remove loading indicator
             self.loading_label.deleteLater()
@@ -149,7 +167,7 @@ class SwitchboardWidget(QWidget):
             from PySide6.QtWidgets import QToolTip
             from PySide6.QtCore import QPoint
             from PySide6.QtGui import QValidator
-            import switchboard.switchboard_widgets as sb_widgets
+            import switchboard.switchboard_widgets as sb_widgets # type: ignore
             from pathlib import Path
             
             # Create a safe QToolTip class that doesn't fail on instantiation
@@ -321,6 +339,10 @@ class SwitchboardWidget(QWidget):
         """Handle close event"""
         self.logger.info("SwitchboardWidget closing, cleaning up...")
         try:
+            # Clear global reference
+            global _CURRENT_SWITCHBOARD_DIALOG
+            _CURRENT_SWITCHBOARD_DIALOG = None
+            
             # Ask Switchboard to perform its internal shutdown first (main thread)
             if self.switchboard_dialog and hasattr(self.switchboard_dialog, 'on_exit'):
                 try:

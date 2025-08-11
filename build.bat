@@ -50,6 +50,7 @@ python -m PyInstaller ^
     --add-data "src/external/sync_sandbox.bat;external" ^
     --add-data "CHANGELOG.md;ui/changelog" ^
     --add-data "src/ui/ndisplaymonitor/images;ui/ndisplaymonitor/images" ^
+    --add-data "src/ui/switchboard_new/images;ui/switchboard_new/images" ^
     --distpath "dist" ^
     --workpath "build" ^
     --clean ^

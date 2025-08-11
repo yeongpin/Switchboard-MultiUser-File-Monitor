@@ -201,6 +201,7 @@ class SVNWidget(QWidget):
         self.logger = get_logger(__name__)
         self.content_path = content_path
         self.svn_worker = None
+        self._during_detection = False
         
         self.setup_ui()
         self.setup_connections()
@@ -214,6 +215,9 @@ class SVNWidget(QWidget):
             from core.config_detector import ConfigDetector
             self.config_detector = ConfigDetector()
             
+            # Begin detection (suppress combo change side-effects)
+            self._during_detection = True
+
             # Get available configs
             configs = self.config_detector.get_available_configs()
             self.on_configs_found(configs)
@@ -221,6 +225,9 @@ class SVNWidget(QWidget):
             # Try to detect current config
             current_config = self.config_detector.detect_current_config()
             self.on_current_config_found(current_config)
+
+            # End detection
+            self._during_detection = False
             
             self.log_message("Configuration detection completed", "S")
             
@@ -235,10 +242,26 @@ class SVNWidget(QWidget):
     
     def on_configs_found(self, configs: list):
         """Handle configs found"""
-        # Update combo box with found configs
-        self.config_combo.clear()
-        for config_path in configs:
-            self.config_combo.addItem(str(config_path.stem), config_path)
+        # Update combo box with found configs; do not trigger selection change during population
+        self.config_combo.blockSignals(True)
+        try:
+            self.config_combo.clear()
+            for config_path in configs:
+                self.config_combo.addItem(str(config_path.stem), config_path)
+
+            # Pre-select last used config if present
+            try:
+                last_used = self.config_detector.get_last_used_config_path()
+                if last_used:
+                    for i in range(self.config_combo.count()):
+                        path = self.config_combo.itemData(i)
+                        if path and str(Path(path)) == str(Path(last_used)):
+                            self.config_combo.setCurrentIndex(i)
+                            break
+            except Exception:
+                pass
+        finally:
+            self.config_combo.blockSignals(False)
         
         self.logger.debug(f"Found {len(configs)} configuration files")
     
@@ -248,11 +271,23 @@ class SVNWidget(QWidget):
             self.load_config(current_config)
             self.log_message(f"Loaded configuration: {current_config.project_name}", "S")
         else:
+            # Try last-used config from user settings
+            try:
+                last_used = self.config_detector.get_last_used_config_path()
+                if last_used:
+                    cfg = self.config_detector.load_config_by_path(Path(last_used))
+                    if cfg:
+                        self.load_config(cfg)
+                        self.log_message(f"Loaded last used configuration: {cfg.project_name}", "S")
+                        return
+            except Exception:
+                pass
             self.log_message("No current configuration found", "W")
     
     def on_config_changed(self, config_name: str):
         """Handle config selection change"""
-        if not config_name:
+        # Ignore changes while we are populating during detection
+        if self._during_detection or not config_name:
             return
         
         config_path = self.config_combo.currentData()
