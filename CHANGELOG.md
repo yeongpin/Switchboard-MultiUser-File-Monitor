@@ -1,3 +1,18 @@
+### v1.4.0  
+#### 2025/09/02  
+- 🖥️ **Switchboard New 全頁 Loading**：改為全頁半透明遮罩並置中顯示提示，初始化完成或超時自動隱藏。  
+- 🧭 **選單鏡像優化**：啟動時優先直接鏡像 Switchboard 的選單；多次重試失敗才建立本地後備選單，避免出現兩套相似選單的閃爍。  
+- ⚙️ **Config 選擇一致化**：
+  - 內嵌 Switchboard、MultiUser File Monitor、SVN Widget 均改為優先使用 `user_settings.json` 的「上次使用的 config」，不會再強制選第一個。  
+  - ComboBox 在偵測期間關閉訊號、偵測完成後再啟用，避免重複載入造成卡頓。  
+- 🌐 **Address/Config 顯示**：
+  - 底部 Address 與 Config File 直接鏡像 Switchboard，若為空或顯示占位字（Address/Adress）則回退本機非 127.x IPv4。  
+  - Address 設為唯讀且不可聚焦，避免誤編輯。  
+- 🔘 **全域與多用戶控制修正**：
+  - 「Start All / Connect All」與 Multi‑user `+` 綁定加上防重複守衛，移除 RuntimeWarning。  
+  - Start/Stop 圖示與啟用狀態統一，依實際連線/執行狀態即時更新。  
+- 🚀 **啟動體驗**：縮短初始化延遲（選單/等級/日誌綁定），預設分頁可由 `self.active_tab` 指定並立即套用。  
+
 ### v1.3.5  
 #### 2025/08/28  
 - 🛠️ **Logger 等級過濾修正**：下拉改為直接控制處理器層級，切換 DEBUG/INFO/WARNING/ERROR 立即生效。  

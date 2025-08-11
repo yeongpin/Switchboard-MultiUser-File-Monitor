@@ -36,8 +36,14 @@ class SwitchboardNewTab(QWidget):
         self._ensure_switchboard_path()
 
     def _init_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        # Full-page loading overlay (creates outer layout and content container)
+        self._show_loading_overlay()
+        # Use content layout to add all widgets so the overlay can fully cover them
+        if hasattr(self, '_content_layout') and self._content_layout is not None:
+            layout = self._content_layout
+        else:
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(0, 0, 0, 0)
         
         # Create menu bar at the top
         self.menu_bar = self._create_menu_bar()
@@ -103,6 +109,8 @@ class SwitchboardNewTab(QWidget):
         QTimer.singleShot(800, self._start_menu_sync_timer)
         # Repeatedly try to link level row to Switchboard
         QTimer.singleShot(800, self._start_level_sync_timer)
+        # Safety: hide overlay after a few seconds even if mirroring is slow
+        QTimer.singleShot(5000, self._hide_loading_overlay)
         
         # Set up periodic status refresh for connection state updates
         self._status_timer = QTimer(self)
@@ -481,76 +489,16 @@ class SwitchboardNewTab(QWidget):
                         else:
                             # Top-level action without submenu
                             menu_bar.addAction(action)
-                    # Done – return fully mirrored menubar
+                    # Mark synced – return fully mirrored menubar
+                    self._menu_synced = True
                     return menu_bar
         except Exception as exc:
-            # Fall back to minimal local menus below
-            self.logger.debug(f"Switchboard menu mirror failed, using local menu: {exc}")
+            self.logger.debug(f"Switchboard menu mirror attempt failed (will retry): {exc}")
         
-        # Configs Menu
-        configs_menu = QMenu("Configs", menu_bar)
-        
-        # New Config action
-        new_config_action = QAction("New Config", self)
-        new_config_action.setToolTip("Create a new Switchboard configuration")
-        new_config_action.triggered.connect(self._on_new_config)
-        configs_menu.addAction(new_config_action)
-        
-        # Save Config As action
-        save_config_as_action = QAction("Save Config As...", self)
-        save_config_as_action.setToolTip("Save current configuration with a new name")
-        save_config_as_action.triggered.connect(self._on_save_config_as)
-        configs_menu.addAction(save_config_as_action)
-        
-        # Delete Config action
-        delete_config_action = QAction("Delete Current Config", self)
-        delete_config_action.setToolTip("Delete the currently loaded configuration")
-        delete_config_action.triggered.connect(self._on_delete_config)
-        configs_menu.addAction(delete_config_action)
-        
-        configs_menu.addSeparator()
-        
-        # Load Config submenu
-        load_config_menu = QMenu("Load Config", configs_menu)
-        self._populate_load_config_menu(load_config_menu)
-        configs_menu.addMenu(load_config_menu)
-        
-        menu_bar.addMenu(configs_menu)
-        
-        # Settings Menu
-        settings_menu = QMenu("Settings", menu_bar)
-        
-        settings_action = QAction("Settings", self)
-        settings_action.setToolTip("Open Switchboard settings")
-        settings_action.triggered.connect(self._on_settings)
-        settings_menu.addAction(settings_action)
-        
-        menu_bar.addMenu(settings_menu)
-        
-        # Tools Menu
-        tools_menu = QMenu("Tools", menu_bar)
-        
-        # Collect Logs action
-        collect_logs_action = QAction("Collect Logs", self)
-        collect_logs_action.setToolTip("Collect diagnostic logs")
-        collect_logs_action.triggered.connect(self._on_collect_logs)
-        tools_menu.addAction(collect_logs_action)
-        
-        # Launcher Tools submenu
-        launcher_menu = QMenu("Launcher Tools", tools_menu)
-        
-        listener_launcher_action = QAction("Listener Launcher", self)
-        listener_launcher_action.triggered.connect(self._on_listener_launcher)
-        launcher_menu.addAction(listener_launcher_action)
-        
-        application_launcher_action = QAction("Application Launcher", self)
-        application_launcher_action.triggered.connect(self._on_application_launcher)
-        launcher_menu.addAction(application_launcher_action)
-        
-        tools_menu.addMenu(launcher_menu)
-        
-        menu_bar.addMenu(tools_menu)
-        
+        # Do not build fallback immediately to avoid "similar UI" flashing.
+        # We'll retry mirroring via timer, and only build fallback if mirroring fails repeatedly.
+        self._menu_synced = False
+        self._fallback_menu_built = False
         return menu_bar
 
     def _style_toolbar_button(self, btn: QPushButton):
@@ -595,14 +543,71 @@ class SwitchboardNewTab(QWidget):
                             self.menu_bar.addAction(action)
                     self._menu_synced = True
                     self._menu_sync_timer.stop()
+                    self._hide_loading_overlay()
                     return
-            # Stop retrying after 10 attempts (~10s)
+            # Stop retrying after 10 attempts (~10s) and build local fallback once
             if self._menu_sync_attempts >= 10:
                 self._menu_sync_timer.stop()
+                if not getattr(self, '_fallback_menu_built', False):
+                    self.menu_bar.clear()
+                    self._build_local_fallback_menus(self.menu_bar)
+                    self._fallback_menu_built = True
+                self._hide_loading_overlay()
         except Exception:
             # Keep trying until attempts exhausted
             if self._menu_sync_attempts >= 10:
                 self._menu_sync_timer.stop()
+                if not getattr(self, '_fallback_menu_built', False):
+                    self.menu_bar.clear()
+                    self._build_local_fallback_menus(self.menu_bar)
+                    self._fallback_menu_built = True
+                self._hide_loading_overlay()
+
+    def _build_local_fallback_menus(self, menu_bar: QMenuBar):
+        """Build local menus when mirroring Switchboard menus is not available."""
+        # Configs Menu
+        configs_menu = QMenu("Configs", menu_bar)
+        new_config_action = QAction("New Config", self)
+        new_config_action.setToolTip("Create a new Switchboard configuration")
+        new_config_action.triggered.connect(self._on_new_config)
+        configs_menu.addAction(new_config_action)
+        save_config_as_action = QAction("Save Config As...", self)
+        save_config_as_action.setToolTip("Save current configuration with a new name")
+        save_config_as_action.triggered.connect(self._on_save_config_as)
+        configs_menu.addAction(save_config_as_action)
+        delete_config_action = QAction("Delete Current Config", self)
+        delete_config_action.setToolTip("Delete the currently loaded configuration")
+        delete_config_action.triggered.connect(self._on_delete_config)
+        configs_menu.addAction(delete_config_action)
+        configs_menu.addSeparator()
+        load_config_menu = QMenu("Load Config", configs_menu)
+        self._populate_load_config_menu(load_config_menu)
+        configs_menu.addMenu(load_config_menu)
+        menu_bar.addMenu(configs_menu)
+
+        # Settings Menu
+        settings_menu = QMenu("Settings", menu_bar)
+        settings_action = QAction("Settings", self)
+        settings_action.setToolTip("Open Switchboard settings")
+        settings_action.triggered.connect(self._on_settings)
+        settings_menu.addAction(settings_action)
+        menu_bar.addMenu(settings_menu)
+
+        # Tools Menu
+        tools_menu = QMenu("Tools", menu_bar)
+        collect_logs_action = QAction("Collect Logs", self)
+        collect_logs_action.setToolTip("Collect diagnostic logs")
+        collect_logs_action.triggered.connect(self._on_collect_logs)
+        tools_menu.addAction(collect_logs_action)
+        launcher_menu = QMenu("Launcher Tools", tools_menu)
+        listener_launcher_action = QAction("Listener Launcher", self)
+        listener_launcher_action.triggered.connect(self._on_listener_launcher)
+        launcher_menu.addAction(listener_launcher_action)
+        application_launcher_action = QAction("Application Launcher", self)
+        application_launcher_action.triggered.connect(self._on_application_launcher)
+        launcher_menu.addAction(application_launcher_action)
+        tools_menu.addMenu(launcher_menu)
+        menu_bar.addMenu(tools_menu)
 
     # ----- Level row (mirror Switchboard's level selector) -----
     def _create_level_row(self) -> QHBoxLayout:
@@ -1203,6 +1208,7 @@ class SwitchboardNewTab(QWidget):
         self.base_console.appendPlainText("Note: Connect to Switchboard for full logging integration")
         self.base_console.appendPlainText("")
         self.base_console.appendPlainText("Standalone logging active - device events will appear here")
+        self._hide_loading_banner()
 
     def _retry_logger_connection(self):
         """Retry connecting to Switchboard logging after delay."""
@@ -1222,6 +1228,63 @@ class SwitchboardNewTab(QWidget):
         except Exception:
             pass
         return None
+
+    # ------------- Loading overlay helpers -------------
+    def _show_loading_overlay(self):
+        try:
+            if getattr(self, '_overlay_created', False):
+                return
+            self._overlay_created = True
+            from PySide6.QtWidgets import QStackedLayout
+            # Wrap existing layout into a stacked layout with an overlay
+            self._stack = QStackedLayout()
+            # Replace current widget layout
+            container = QWidget()
+            base_layout = QVBoxLayout(container)
+            base_layout.setContentsMargins(0,0,0,0)
+            # Move existing children from self layout into base_layout
+            # Since we call this at the very beginning, there are no children yet.
+            # Add the stacked layout to self
+            outer = QVBoxLayout(self)
+            outer.setContentsMargins(0,0,0,0)
+            outer.addLayout(self._stack)
+            # Overlay widget
+            self._overlay = QWidget()
+            overlay_layout = QVBoxLayout(self._overlay)
+            overlay_layout.setContentsMargins(0, 0, 0, 0)
+            label = QLabel("正在初始化 Switchboard New...")
+            label.setAlignment(Qt.AlignCenter)
+            label.setFont(QFont("Segoe UI", 12))
+            label.setStyleSheet("""
+            QLabel {
+                color: #7f8c8d;
+                padding: 40px;
+            }
+            """)
+            overlay_layout.addStretch(1)
+            overlay_layout.addWidget(label)
+            overlay_layout.addStretch(1)
+            # Add pages to stack: index 0 will be the actual content container, index 1 is overlay
+            self._content_container = QWidget()
+            self._content_layout = QVBoxLayout(self._content_container)
+            self._content_layout.setContentsMargins(0,0,0,0)
+            self._stack.addWidget(self._content_container)
+            self._stack.addWidget(self._overlay)
+            self._stack.setCurrentWidget(self._overlay)
+            # Rewire local variable 'layout' users to point to content layout
+            self._initial_layout = self._content_layout
+        except Exception:
+            # Fallback: do nothing
+            self._initial_layout = None
+
+    def _hide_loading_overlay(self):
+        try:
+            if hasattr(self, '_stack') and hasattr(self, '_content_container'):
+                self._stack.setCurrentWidget(self._content_container)
+                if hasattr(self, '_overlay'):
+                    self._overlay.deleteLater()
+        except Exception:
+            pass
 
     def _mirror_address_and_config_text(self):
         """Mirror Switchboard's current address and config text values."""
