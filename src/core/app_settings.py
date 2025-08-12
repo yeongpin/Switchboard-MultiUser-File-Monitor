@@ -23,6 +23,8 @@ from pathlib import Path
 import configparser
 from datetime import datetime
 import os
+import sys
+import subprocess
 from PySide6.QtCore import QTimer
 
 
@@ -68,6 +70,7 @@ def _create_default_ini(ini_path: Path) -> None:
         "auto_connect_device": "false",
         "auto_stop_muserver_on_stop_all": "false",
         "stop_all_devices_on_exit": "false",
+        "start_on_windows_launch": "false",
     }
     with ini_path.open("w", encoding="utf-8") as fp:
         config.write(fp)
@@ -136,6 +139,114 @@ def set_switchboard_stop_all_on_exit(enabled: bool) -> None:
     cfg.set("switchboard", "stop_all_devices_on_exit", "true" if enabled else "false")
     with get_settings_ini_path().open("w", encoding="utf-8") as fp:
         cfg.write(fp)
+
+
+# ----- Windows startup management -----
+def _windows_startup_dir() -> Path:
+    appdata = os.getenv('APPDATA', '')
+    if appdata:
+        return Path(appdata) / 'Microsoft' / 'Windows' / 'Start Menu' / 'Programs' / 'Startup'
+    # Fallback
+    return Path.home() / 'AppData' / 'Roaming' / 'Microsoft' / 'Windows' / 'Start Menu' / 'Programs' / 'Startup'
+
+
+def _startup_shortcut_path() -> Path:
+    # Shortcut name per requirement
+    return _windows_startup_dir() / 'SwitchboardMultiUserMonitor.lnk'
+
+
+def _app_launch_target() -> tuple[str, str, str, str]:
+    """Return (target, args, working_dir, icon_path)."""
+    # Project root: UnrealEngineSwitchboardSync
+    root = Path(__file__).resolve().parents[2]
+    icon = str((root / 'src' / 'ui' / 'multiusersync' / 'images' / 'switchboard.ico').resolve())
+    if getattr(sys, 'frozen', False):
+        exe = sys.executable
+        return exe, '', str(Path(exe).parent), icon
+    # Prefer run.bat when not frozen
+    run_bat = (root / 'run.bat').resolve()
+    if run_bat.exists():
+        return str(run_bat), '', str(root.resolve()), icon
+    # Fallback to python -m src.main
+    py = sys.executable
+    args = f"-m src.main"
+    return py, args, str(root.resolve()), icon
+
+
+def _create_shortcut_via_win32(target: str, args: str, workdir: str, icon: str, link_path: str) -> bool:
+    try:
+        import win32com.client  # type: ignore
+        shell = win32com.client.Dispatch('WScript.Shell')
+        shortcut = shell.CreateShortcut(link_path)
+        shortcut.TargetPath = target
+        shortcut.Arguments = args
+        shortcut.WorkingDirectory = workdir
+        if os.path.exists(icon):
+            shortcut.IconLocation = icon
+        shortcut.Save()
+        return True
+    except Exception:
+        return False
+
+
+def _create_shortcut_via_powershell(target: str, args: str, workdir: str, icon: str, link_path: str) -> bool:
+    try:
+        def esc(s: str) -> str:
+            return s.replace('`', '``').replace('"', '\"')
+        ps = (
+            f"$W=New-Object -ComObject WScript.Shell;"
+            f"$S=$W.CreateShortcut(\"{esc(link_path)}\");"
+            f"$S.TargetPath=\"{esc(target)}\";"
+            f"$S.Arguments=\"{esc(args)}\";"
+            f"$S.WorkingDirectory=\"{esc(workdir)}\";"
+            f"$S.IconLocation=\"{esc(icon)}\";"
+            f"$S.Save()"
+        )
+        subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps],
+                       check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return os.path.exists(link_path)
+    except Exception:
+        return False
+
+
+def enable_start_on_windows_launch() -> bool:
+    """Create startup shortcut; returns True on success."""
+    link = str(_startup_shortcut_path())
+    target, args, workdir, icon = _app_launch_target()
+    # Try COM first, then PowerShell fallback
+    if _create_shortcut_via_win32(target, args, workdir, icon, link):
+        return True
+    return _create_shortcut_via_powershell(target, args, workdir, icon, link)
+
+
+def disable_start_on_windows_launch() -> None:
+    try:
+        p = _startup_shortcut_path()
+        if p.exists():
+            p.unlink()
+    except Exception:
+        pass
+
+
+def get_start_on_windows_launch() -> bool:
+    try:
+        return _startup_shortcut_path().exists()
+    except Exception:
+        return False
+
+
+def set_start_on_windows_launch(enabled: bool) -> bool:
+    """Persist setting and apply startup shortcut state."""
+    cfg = load_settings()
+    if not cfg.has_section('switchboard'):
+        cfg.add_section('switchboard')
+    cfg.set('switchboard', 'start_on_windows_launch', 'true' if enabled else 'false')
+    with get_settings_ini_path().open('w', encoding='utf-8') as fp:
+        cfg.write(fp)
+    if enabled:
+        return enable_start_on_windows_launch()
+    disable_start_on_windows_launch()
+    return True
 
 
 def _attempt_connect_all_devices() -> bool:
@@ -212,6 +323,10 @@ __all__ = [
     "auto_stop_muserver_after_stop_all",
     "get_switchboard_stop_all_on_exit",
     "set_switchboard_stop_all_on_exit",
+    "get_start_on_windows_launch",
+    "set_start_on_windows_launch",
+    "enable_start_on_windows_launch",
+    "disable_start_on_windows_launch",
 ]
 
 

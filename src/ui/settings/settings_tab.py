@@ -23,6 +23,8 @@ from core.app_settings import (
     set_switchboard_auto_stop_muserver_on_stop_all,
     get_switchboard_stop_all_on_exit,
     set_switchboard_stop_all_on_exit,
+    get_start_on_windows_launch,
+    set_start_on_windows_launch,
 )
 from utils.logger import get_logger
 
@@ -42,6 +44,20 @@ class SettingsTab(QWidget):
         title = QLabel("Settings")
         title.setStyleSheet("QLabel { color: #ddd; font-size: 15px; font-weight: 600; }")
         layout.addWidget(title)
+
+        # --- Collapsible section: General (default expanded) ---
+        general_section = self._create_collapsible_section("General", expanded=True)
+        self.general_content_layout: QVBoxLayout = general_section["content_layout"]
+        layout.addWidget(general_section["frame"])
+
+        # start on Windows launch (startup folder shortcut)
+        self.start_on_launch_cb = QCheckBox("Start on Windows launch")
+        try:
+            self.start_on_launch_cb.setChecked(get_start_on_windows_launch())
+        except Exception:
+            self.start_on_launch_cb.setChecked(False)
+        self.start_on_launch_cb.toggled.connect(lambda v: set_start_on_windows_launch(bool(v)))
+        self.general_content_layout.addWidget(self.start_on_launch_cb)
 
         # --- Collapsible section: Switchboard (default expanded) ---
         section = self._create_collapsible_section("Switchboard", expanded=True)
@@ -65,6 +81,8 @@ class SettingsTab(QWidget):
         self.stop_all_on_exit_cb.setChecked(get_switchboard_stop_all_on_exit())
         self.stop_all_on_exit_cb.toggled.connect(lambda v: set_switchboard_stop_all_on_exit(bool(v)))
         self.sb_content_layout.addWidget(self.stop_all_on_exit_cb)
+
+        # (moved start_on_launch to General section)
 
         # Spacer pushes footer to bottom
         layout.addStretch(1)

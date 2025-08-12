@@ -1,3 +1,8 @@
+### v1.5.4  
+#### 2025/10/02  
+- 🧭 **Settings > General**：新增「Start on Windows launch」設定（預設關閉）。啟用時會建立開機自啟的快捷方式至使用者啟動資料夾，名稱為 `SwitchboardMultiUserMonitor.lnk`。  
+- 🧰 **實作細節**：優先使用 COM（`WScript.Shell`）建立捷徑，失敗時改用 PowerShell；可讀取現況並同步勾選狀態。  
+
 ### v1.5.3  
 #### 2025/09/29  
 - ⚙️ **設定：Stop all devices on exit**：新增 `[switchboard] stop_all_devices_on_exit=false`（預設）。當啟用時，關閉應用會依序「Stop All → 強制關閉各裝置 → Disconnect All → 停止 MU Server」。  
