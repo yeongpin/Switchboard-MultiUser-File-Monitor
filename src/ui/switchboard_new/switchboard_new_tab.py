@@ -91,6 +91,12 @@ class SwitchboardNewTab(QWidget):
         self._global_ctrls_bound = False
         self._init_ui()
         self._ensure_switchboard_path()
+        # Auto-connect if enabled in app settings
+        try:
+            from core.app_settings import connect_all_devices_if_enabled
+            connect_all_devices_if_enabled()
+        except Exception:
+            pass
 
     def _init_ui(self):
         # Full-page loading overlay (creates outer layout and content container)
@@ -847,6 +853,14 @@ class SwitchboardNewTab(QWidget):
                         self.connect_all_button.setEnabled(enabled_conn)
                         self.connect_all_button.setIcon(self._get_local_icon('icon_connected.png') or QIcon(':/icons/images/icon_connected.png') if checked_conn else self._get_local_icon('icon_connect.png') or QIcon(':/icons/images/icon_connect.png'))
                         self.connect_all_button.setToolTip("Disconnect all connected devices" if checked_conn else "Connect all devices")
+
+                        # If user triggered Stop All and feature is enabled, auto-stop multi-user server
+                        if not checked_start:  # means current state is not running after last toggle
+                            try:
+                                from core.app_settings import auto_stop_muserver_after_stop_all
+                                auto_stop_muserver_after_stop_all()
+                            except Exception:
+                                pass
                 except Exception:
                     pass
 

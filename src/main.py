@@ -24,6 +24,7 @@ from ui.ndisplaymonitor import NDisplayMonitorTab
 from ui.switchboard_new import SwitchboardNewTab
 from ui.changelog import ChangelogWidget
 from ui.svn import SVNWidget
+from ui.settings import SettingsTab
 from utils.logger import setup_logger
 
 # Get version - handle both direct run and packaged scenarios
@@ -64,6 +65,7 @@ class IntegratedMainWindow(QMainWindow):
         self.index.multiuser_widget = 3
         self.index.svn_widget = 4
         self.index.changelog_widget = 5
+        self.index.settings_widget = 6
 
         self.active_tab = 0
         
@@ -203,6 +205,22 @@ class IntegratedMainWindow(QMainWindow):
             label.setAlignment(Qt.AlignCenter)
             placeholder.layout().addWidget(label)
             tabs_to_add.append((self.index.changelog_widget, placeholder, "Changelog"))
+
+        # Initialize Settings (Tab 6)
+        try:
+            self.logger.info("Initializing Settings tab...")
+            self.settings_widget = SettingsTab()
+            tabs_to_add.append((self.index.settings_widget, self.settings_widget, "Settings"))
+            self.logger.info("Settings tab added successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize Settings tab: {e}")
+            placeholder = QWidget()
+            placeholder.setLayout(QVBoxLayout())
+            from PySide6.QtWidgets import QLabel
+            label = QLabel("Settings not available")
+            label.setAlignment(Qt.AlignCenter)
+            placeholder.layout().addWidget(label)
+            tabs_to_add.append((self.index.settings_widget, placeholder, "Settings"))
         
         # Add tabs in the correct order based on index
         tabs_to_add.sort(key=lambda x: x[0])  # Sort by index

@@ -1,3 +1,11 @@
+### v1.5.0  
+#### 2025/09/17  
+- 🧭 **Settings 分頁（初版）**：新增 Settings 標籤頁，採用可展開/收縮卡片式區塊（樣式與 Changelog 一致），預設展開。  
+- ⚙️ **設定檔結構**：自動建立 `Documents/SwitchboardSync/settings/config.ini`，僅包含 `[switchboard]` 區段：`auto_connect_device=false`（預設）。  
+- 🔌 **自動連線整合**：新增 `core.app_settings.connect_all_devices_if_enabled()`；當 `auto_connect_device=true` 時，啟動後自動重試呼叫「Connect All」直至 Switchboard 準備就緒。`switchboard_new_tab.py` 已在初始化時掛載此行為。  
+- 🗂️ **Locate**：Settings 底部提供「Config file: <path> | Locate」按鈕，可於檔案總管定位 `config.ini`。  
+- 🧾 **版本顯示**：Settings 右下角顯示目前版本號，與其他頁一致。  
+
 ### v1.4.3  
 #### 2025/09/11  
 - 🧩 **Switchboard New：日誌管線統一**：改為附加至 Python root logger（Qt signal → UI），捨棄易遺漏的文字鏡像；輸出與 `SVNWidget`、nDisplay Monitor 一致且完整。  
