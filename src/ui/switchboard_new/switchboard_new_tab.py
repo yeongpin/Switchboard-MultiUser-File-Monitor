@@ -10,8 +10,9 @@ import sys
 from typing import Optional, Iterable
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, QSize
-from PySide6.QtGui import QFont, QAction, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor
+from PySide6.QtCore import Qt, QTimer, QSize, QObject, Signal
+from PySide6.QtGui import QFont, QAction, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor, QTextCursor
+import logging
 import re
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QSplitter, QFrame, QHBoxLayout,
@@ -59,6 +60,24 @@ class _LogHighlighter(QSyntaxHighlighter):
         else:
             # info/default
             self.setFormat(0, len(text), self.fmt_info)
+
+
+class _QtLogEmitter(QObject):
+    sig_record = Signal(str)  # type: ignore[name-defined]
+
+
+class QtLogHandler(logging.Handler):
+    """Logging handler that forwards formatted records to a Qt signal."""
+    def __init__(self):
+        super().__init__()
+        self.emitter = _QtLogEmitter()
+
+    def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover
+        try:
+            msg = self.format(record)
+        except Exception:
+            msg = record.getMessage()
+        self.emitter.sig_record.emit(msg)
 
 
 class SwitchboardNewTab(QWidget):
@@ -170,6 +189,12 @@ class SwitchboardNewTab(QWidget):
                 sb_logger = logging.getLogger('switchboard')
                 if sb_logger:
                     sb_logger.removeHandler(self.console_handler)
+            # Detach root logger handler if attached
+            if hasattr(self, '_root_logger') and hasattr(self, '_root_handler') and self._root_logger and self._root_handler:
+                try:
+                    self._root_logger.removeHandler(self._root_handler)
+                except Exception:
+                    pass
                     
         except Exception:
             pass
@@ -265,6 +290,11 @@ class SwitchboardNewTab(QWidget):
             self._log_highlighter.rehighlight()
         except Exception:
             pass
+
+        # Attach root logger so logs are complete (avoid lossy mirroring)
+        self._attach_root_logger()
+        # Ensure initial scroll bars are bottom-left aligned
+        QTimer.singleShot(0, self._scroll_console_to_bottom_left)
         
         # Bottom status bar
         bottom_layout = QHBoxLayout()
@@ -1151,8 +1181,10 @@ class SwitchboardNewTab(QWidget):
             
             self.logger_wrap_checkbox.stateChanged.connect(toggle_line_wrap)
             
-            # Try to connect to Switchboard's actual logging
-            self._setup_switchboard_log_connection()
+            # If root logger already attached, skip lossy mirroring
+            if not getattr(self, '_root_attached', False):
+                # Try to connect to Switchboard's actual logging
+                self._setup_switchboard_log_connection()
             
         except Exception as exc:
             self.logger.warning(f"Failed to connect to Switchboard logger: {exc}")
@@ -1164,7 +1196,7 @@ class SwitchboardNewTab(QWidget):
             from ui.switchboard.switchboard_widget import get_current_switchboard_dialog
             dialog = get_current_switchboard_dialog()
             
-            if dialog and hasattr(dialog, 'base_console'):
+            if not getattr(self, '_root_attached', False) and dialog and hasattr(dialog, 'base_console'):
                 # If Switchboard has a console, we can mirror its output
                 original_console = dialog.base_console
                 self.logger.info("Found Switchboard console, setting up mirroring...")
@@ -1185,6 +1217,8 @@ class SwitchboardNewTab(QWidget):
                             cursor.movePosition(cursor.MoveOperation.End)
                             self.base_console.setTextCursor(cursor)
                             self.base_console.ensureCursorVisible()
+                            # After moving to end, force horizontal bar to left for readability
+                            self._scroll_console_to_bottom_left()
                                 
                     except Exception as e:
                         pass  # Silently ignore errors
@@ -1200,8 +1234,9 @@ class SwitchboardNewTab(QWidget):
                 self.logger.info("Successfully connected to Switchboard console logging")
                 return True
                 
-            # Try alternative approach: access Switchboard's logging directly
-            self._try_direct_logging_connection()
+            # Try alternative approach only if root not attached: access Switchboard's logging directly
+            if not getattr(self, '_root_attached', False):
+                self._try_direct_logging_connection()
                 
         except Exception as exc:
             self.logger.warning(f"Could not connect to Switchboard console: {exc}")
@@ -1211,10 +1246,9 @@ class SwitchboardNewTab(QWidget):
         """Try to connect directly to Switchboard's logging system."""
         try:
             # Get the root logger that Switchboard uses
-            import logging
             sb_logger = logging.getLogger('switchboard')
             
-            if sb_logger:
+            if sb_logger and not getattr(self, '_root_attached', False):
                 # Create a custom handler that writes to our console
                 class ConsoleHandler(logging.Handler):
                     def __init__(self, console_widget):
@@ -1257,6 +1291,7 @@ class SwitchboardNewTab(QWidget):
         self.base_console.appendPlainText("")
         self.base_console.appendPlainText("Standalone logging active - device events will appear here")
         self._hide_loading_banner()
+        self._scroll_console_to_bottom_left()
 
     def _retry_logger_connection(self):
         """Retry connecting to Switchboard logging after delay."""
@@ -1267,6 +1302,51 @@ class SwitchboardNewTab(QWidget):
                 self._setup_switchboard_log_connection()
         except Exception as exc:
             self.logger.debug(f"Retry logger connection failed: {exc}")
+
+    # ---- root logger attachment (complete logs) ----
+    def _attach_root_logger(self):
+        try:
+            if getattr(self, '_root_attached', False):
+                return
+            handler = QtLogHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                          datefmt='%H:%M:%S')
+            handler.setFormatter(formatter)
+            handler.setLevel(logging.DEBUG)
+            handler.emitter.sig_record.connect(self._on_root_log_record)
+            root_logger = logging.getLogger()
+            if not any(isinstance(h, QtLogHandler) for h in root_logger.handlers):
+                root_logger.addHandler(handler)
+            if root_logger.level == logging.NOTSET or root_logger.level > logging.DEBUG:
+                root_logger.setLevel(logging.DEBUG)
+            self._root_logger = root_logger
+            self._root_handler = handler
+            self._root_attached = True
+        except Exception:
+            self._root_logger = None
+            self._root_handler = None
+            self._root_attached = False
+
+    def _on_root_log_record(self, text: str):
+        if not text:
+            return
+        self.base_console.appendPlainText(text)
+        if getattr(self, 'logger_autoscroll_checkbox', None) and self.logger_autoscroll_checkbox.isChecked():
+            self.base_console.moveCursor(QTextCursor.MoveOperation.End)
+        # Keep horizontal scroll at left for long lines
+        self._scroll_console_to_bottom_left()
+
+    # Keep console view bottom-left (vertical max, horizontal min)
+    def _scroll_console_to_bottom_left(self):
+        try:
+            vbar = self.base_console.verticalScrollBar()
+            hbar = self.base_console.horizontalScrollBar()
+            if vbar:
+                vbar.setValue(vbar.maximum())
+            if hbar:
+                hbar.setValue(hbar.minimum())
+        except Exception:
+            pass
 
     def _get_local_icon(self, filename: str) -> QIcon | None:
         try:

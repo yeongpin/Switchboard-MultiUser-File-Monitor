@@ -1,3 +1,11 @@
+### v1.4.3  
+#### 2025/09/11  
+- 🧩 **Switchboard New：日誌管線統一**：改為附加至 Python root logger（Qt signal → UI），捨棄易遺漏的文字鏡像；輸出與 `SVNWidget`、nDisplay Monitor 一致且完整。  
+- 🐛 **修復**：
+  - 修正 `NameError: Signal is not defined`（補齊 `Signal` 匯入）。  
+  - 關閉分頁時移除 root logger handler 與計時器，避免重複輸出與資源外洩。  
+- 🧭 **捲動行為優化**：追加日誌後自動將垂直捲軸移至底部，並強制水平捲軸停在最左（避免長行導致停在中間）。  
+
 ### v1.4.2  
 #### 2025/09/08  
 - 🎨 **Logger 著色（SVN）**：`SVNWidget` 的 Operation Log 新增語法高亮（DEBUG/WARNING/ERROR/SUCCESS/INFO），與 Switchboard New 與 nDisplay Monitor 保持一致。  
