@@ -1,3 +1,8 @@
+### v1.5.1  
+#### 2025/09/22  
+- 🧰 **Switchboard 設定擴充**：新增「Auto stop Multi-user server when Stop All」選項，寫入 `[switchboard] auto_stop_muserver_on_stop_all`。  
+- 🔗 **行為整合**：`auto_stop_muserver_after_stop_all()` 於 Stop All 後延遲關閉 Multi‑user Server（可開關），並已在新標籤的全域控制邏輯中掛載。  
+
 ### v1.5.0  
 #### 2025/09/17  
 - 🧭 **Settings 分頁（初版）**：新增 Settings 標籤頁，採用可展開/收縮卡片式區塊（樣式與 Changelog 一致），預設展開。  
