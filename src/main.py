@@ -25,6 +25,7 @@ from ui.switchboard_new import SwitchboardNewTab
 from ui.changelog import ChangelogWidget
 from ui.svn import SVNWidget
 from ui.settings import SettingsTab
+from ui.switchboard_listener import SwitchboardListenerTab
 from utils.logger import setup_logger
 
 # Get version - handle both direct run and packaged scenarios
@@ -60,12 +61,14 @@ class IntegratedMainWindow(QMainWindow):
         # Initialize index for tab ordering
         self.index = type('Index', (), {})()
         self.index.switchboard_new = 0
-        self.index.switchboard_dialog = 1
-        self.index.ndisplay_monitor = 2
-        self.index.multiuser_widget = 3
-        self.index.svn_widget = 4
-        self.index.changelog_widget = 5
-        self.index.settings_widget = 6
+        self.index.listener_widget = 1
+        self.index.switchboard_dialog = -2
+        self.index.ndisplay_monitor = 3
+        self.index.multiuser_widget = 4
+        self.index.svn_widget = 5
+        self.index.changelog_widget = 6
+        self.index.settings_widget = 7
+
 
         self.active_tab = 0
         
@@ -221,10 +224,29 @@ class IntegratedMainWindow(QMainWindow):
             label.setAlignment(Qt.AlignCenter)
             placeholder.layout().addWidget(label)
             tabs_to_add.append((self.index.settings_widget, placeholder, "Settings"))
+
+        # Initialize Switchboard Listener (Tab 7)
+        try:
+            self.logger.info("Initializing Switchboard Listener tab...")
+            self.listener_widget = SwitchboardListenerTab()
+            tabs_to_add.append((self.index.listener_widget, self.listener_widget, "Switchboard Listener"))
+            self.logger.info("Switchboard Listener tab added successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize Switchboard Listener tab: {e}")
+            placeholder = QWidget()
+            placeholder.setLayout(QVBoxLayout())
+            from PySide6.QtWidgets import QLabel
+            label = QLabel("Switchboard Listener not available")
+            label.setAlignment(Qt.AlignCenter)
+            placeholder.layout().addWidget(label)
+            tabs_to_add.append((self.index.listener_widget, placeholder, "Switchboard Listener"))
         
         # Add tabs in the correct order based on index
         tabs_to_add.sort(key=lambda x: x[0])  # Sort by index
         for index, widget, title in tabs_to_add:
+            # If index is negative, do not display this tab (hidden)
+            if index is None or index < 0:
+                continue
             self.tab_widget.addTab(widget, title)
         # Set active tab on startup
         try:
@@ -388,6 +410,11 @@ class IntegratedMainWindow(QMainWindow):
                     self.ndisplay_widget.close()
                 except Exception as e:
                     self.logger.error(f"Error closing nDisplay widget: {e}")
+            if hasattr(self, 'listener_widget') and self.listener_widget:
+                try:
+                    self.listener_widget.close()
+                except Exception as e:
+                    self.logger.error(f"Error closing Listener widget: {e}")
         except Exception as e:
             self.logger.error(f"Error closing widgets: {e}")
     

@@ -1,3 +1,11 @@
+### v1.5.2  
+#### 2025/09/24  
+- 🖥️ **Switchboard Listener 分頁**：新增專屬分頁，啟動 `SwitchboardListener.exe` 並即時追蹤日誌檔（`.../Saved/Logs/SwitchboardListener.log`）。  
+- 🎨 **日誌高亮**：與 Switchboard New 相同的語法高亮，支援 Wrap、Auto‑scroll、Clear。  
+- 🔘 **控制按鈕**：右上角新增「Stop/Start listener」與「Restart listener」，可即時停止/重啟並重置追蹤。  
+- 🧩 **UI 間距**：調整工具列左右 padding（5px）與按鈕間距，避免貼邊與擁擠。  
+- 🧼 **關閉行為**：退出應用或分頁時停止 tail 並終止 listener 行程。  
+
 ### v1.5.1  
 #### 2025/09/22  
 - 🧰 **Switchboard 設定擴充**：新增「Auto stop Multi-user server when Stop All」選項，寫入 `[switchboard] auto_stop_muserver_on_stop_all`。  
