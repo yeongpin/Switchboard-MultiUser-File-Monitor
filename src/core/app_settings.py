@@ -67,6 +67,7 @@ def _create_default_ini(ini_path: Path) -> None:
     config["switchboard"] = {
         "auto_connect_device": "false",
         "auto_stop_muserver_on_stop_all": "false",
+        "stop_all_devices_on_exit": "false",
     }
     with ini_path.open("w", encoding="utf-8") as fp:
         config.write(fp)
@@ -115,6 +116,24 @@ def set_switchboard_auto_stop_muserver_on_stop_all(enabled: bool) -> None:
     if not cfg.has_section("switchboard"):
         cfg.add_section("switchboard")
     cfg.set("switchboard", "auto_stop_muserver_on_stop_all", "true" if enabled else "false")
+    with get_settings_ini_path().open("w", encoding="utf-8") as fp:
+        cfg.write(fp)
+
+
+def get_switchboard_stop_all_on_exit() -> bool:
+    """Return whether Stop All Devices on application exit is enabled."""
+    cfg = load_settings()
+    try:
+        return cfg.getboolean("switchboard", "stop_all_devices_on_exit", fallback=False)
+    except Exception:
+        return False
+
+
+def set_switchboard_stop_all_on_exit(enabled: bool) -> None:
+    cfg = load_settings()
+    if not cfg.has_section("switchboard"):
+        cfg.add_section("switchboard")
+    cfg.set("switchboard", "stop_all_devices_on_exit", "true" if enabled else "false")
     with get_settings_ini_path().open("w", encoding="utf-8") as fp:
         cfg.write(fp)
 
@@ -191,6 +210,8 @@ __all__ = [
     "get_switchboard_auto_stop_muserver_on_stop_all",
     "set_switchboard_auto_stop_muserver_on_stop_all",
     "auto_stop_muserver_after_stop_all",
+    "get_switchboard_stop_all_on_exit",
+    "set_switchboard_stop_all_on_exit",
 ]
 
 

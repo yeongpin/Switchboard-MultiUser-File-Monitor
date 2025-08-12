@@ -1,3 +1,9 @@
+### v1.5.3  
+#### 2025/09/29  
+- ⚙️ **設定：Stop all devices on exit**：新增 `[switchboard] stop_all_devices_on_exit=false`（預設）。當啟用時，關閉應用會依序「Stop All → 強制關閉各裝置 → Disconnect All → 停止 MU Server」。  
+- 🧹 **關閉流程更穩定**：加入逐裝置 `close(force=True)` 後備，以及明確關閉 rsync server，避免出現「restarting…」訊息。  
+- 📁 **Listener 路徑偵測**：同時支援 `D:\UE_5.6\Engine` 與 `C:\Program Files\Epic Games\UE_5.6\Engine` 的 exe 與 log 路徑自動偵測。  
+
 ### v1.5.2  
 #### 2025/09/24  
 - 🖥️ **Switchboard Listener 分頁**：新增專屬分頁，啟動 `SwitchboardListener.exe` 並即時追蹤日誌檔（`.../Saved/Logs/SwitchboardListener.log`）。  

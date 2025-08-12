@@ -21,6 +21,8 @@ from core.app_settings import (
     set_switchboard_auto_connect,
     get_switchboard_auto_stop_muserver_on_stop_all,
     set_switchboard_auto_stop_muserver_on_stop_all,
+    get_switchboard_stop_all_on_exit,
+    set_switchboard_stop_all_on_exit,
 )
 from utils.logger import get_logger
 
@@ -57,6 +59,12 @@ class SettingsTab(QWidget):
         self.auto_stop_mu_cb.setChecked(get_switchboard_auto_stop_muserver_on_stop_all())
         self.auto_stop_mu_cb.toggled.connect(lambda v: set_switchboard_auto_stop_muserver_on_stop_all(bool(v)))
         self.sb_content_layout.addWidget(self.auto_stop_mu_cb)
+
+        # stop all devices on application exit
+        self.stop_all_on_exit_cb = QCheckBox("Stop all devices on exit")
+        self.stop_all_on_exit_cb.setChecked(get_switchboard_stop_all_on_exit())
+        self.stop_all_on_exit_cb.toggled.connect(lambda v: set_switchboard_stop_all_on_exit(bool(v)))
+        self.sb_content_layout.addWidget(self.stop_all_on_exit_cb)
 
         # Spacer pushes footer to bottom
         layout.addStretch(1)

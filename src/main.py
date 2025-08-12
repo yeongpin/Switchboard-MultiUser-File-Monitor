@@ -385,11 +385,19 @@ class IntegratedMainWindow(QMainWindow):
     def close_ui_widgets_on_main_thread(self):
         """Close child widgets safely on the GUI thread."""
         try:
+            # Attempt graceful device stop/disconnect and MU server stop before closing UIs
+            self._graceful_switchboard_shutdown()
+
             if self.multiuser_widget:
                 try:
                     self.multiuser_widget.close()
                 except Exception as e:
                     self.logger.error(f"Error closing MultiUser widget: {e}")
+            if hasattr(self, 'switchboard_new_widget') and self.switchboard_new_widget:
+                try:
+                    self.switchboard_new_widget.close()
+                except Exception as e:
+                    self.logger.error(f"Error closing Switchboard New widget: {e}")
             if self.switchboard_widget:
                 try:
                     self.switchboard_widget.close()
@@ -445,6 +453,71 @@ class IntegratedMainWindow(QMainWindow):
         """Quit the application from main thread"""
         from PySide6.QtWidgets import QApplication
         QApplication.quit()
+
+    # ---------- Helpers ----------
+    def _graceful_switchboard_shutdown(self):
+        """Ensure MU server is stopped, then stop and disconnect all devices once.
+
+        This is called only from main window close path to avoid double execution
+        from individual tabs.
+        """
+        try:
+            from ui.switchboard.switchboard_widget import get_current_switchboard_dialog  # type: ignore
+            dialog = get_current_switchboard_dialog()
+            if not dialog:
+                return
+            # Respect setting: Stop All Devices on Exit
+            from core.app_settings import get_switchboard_stop_all_on_exit
+            if get_switchboard_stop_all_on_exit():
+                # Stop MU server if running
+                try:
+                    if hasattr(dialog, 'window') and hasattr(dialog.window, 'muserver_start_stop_button'):
+                        if dialog.window.muserver_start_stop_button.isChecked():
+                            dialog.on_muserver_start_stop_click()
+                except Exception:
+                    pass
+                # Stop all
+                try:
+                    if hasattr(dialog, 'launch_all_button_clicked'):
+                        dialog.launch_all_button_clicked(False)
+                except Exception:
+                    pass
+                # Ensure each device is closed as a fallback
+                try:
+                    if hasattr(dialog, 'device_manager') and hasattr(dialog.device_manager, 'devices'):
+                        for device in list(dialog.device_manager.devices()):
+                            try:
+                                if hasattr(device, 'close'):
+                                    device.close(force=True)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+                # brief wait for processes to shutdown
+                try:
+                    import time
+                    time.sleep(0.5)
+                except Exception:
+                    pass
+                # Disconnect all
+                try:
+                    if hasattr(dialog, 'connect_all_button_clicked'):
+                        dialog.connect_all_button_clicked(False)
+                except Exception:
+                    pass
+
+            # Gracefully shutdown rsync server to prevent auto-restart in monitor
+            try:
+                from switchboard.devices.unreal.plugin_unreal import DeviceUnreal  # type: ignore
+                if hasattr(DeviceUnreal, 'rsync_server') and DeviceUnreal.rsync_server.is_running():
+                    DeviceUnreal.rsync_server.shutdown()
+                    # brief wait to let monitor stop without restart
+                    import time
+                    time.sleep(0.5)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
 
 def main():
