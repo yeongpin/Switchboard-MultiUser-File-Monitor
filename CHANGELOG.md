@@ -1,3 +1,7 @@
+### v1.5.5  
+#### 2025/10/03  
+- 🐛 **Device grid 穩定性**：強化 `eventFilter`，只在 `QEvent.Resize` 時處理，遇到非 `QEvent`（例如 `QWidgetItem`）安全忽略，並在父類呼叫加上型別防護，避免長時間運行後出現 `AttributeError/TypeError`。  
+
 ### v1.5.4  
 #### 2025/10/02  
 - 🧭 **Settings > General**：新增「Start on Windows launch」設定（預設關閉）。啟用時會建立開機自啟的快捷方式至使用者啟動資料夾，名稱為 `SwitchboardMultiUserMonitor.lnk`。  

@@ -3,6 +3,6 @@
 Switchboard MultiUser File Monitor Package
 """
 
-__version__ = "1.5.4"
+__version__ = "1.5.5"
 __author__ = "yeongpin"
 __description__ = "A tool for monitoring and managing Unreal Engine Switchboard MultiUser temporary files" 

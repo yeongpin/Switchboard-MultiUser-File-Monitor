@@ -115,9 +115,22 @@ class DeviceCardGrid(QWidget):
         layout.addWidget(self.scroll)
 
     def eventFilter(self, obj, event):
-        if obj is self.scroll.viewport() and event.type() == QEvent.Resize:
-            self._apply_layout(self._calculate_columns())
-        return super().eventFilter(obj, event)
+        try:
+            if obj is self.scroll.viewport() and hasattr(event, 'type'):
+                try:
+                    if int(event.type()) == int(QEvent.Resize):
+                        self._apply_layout(self._calculate_columns())
+                except Exception:
+                    # event.type() not callable/int-compatible – ignore
+                    pass
+        except Exception:
+            # Ignore non-QEvent payloads that may accidentally be routed here
+            pass
+        try:
+            return super().eventFilter(obj, event)
+        except TypeError:
+            # Qt expects a QEvent; if a non-QEvent slipped through, just report unhandled
+            return False
 
     def _calculate_columns(self) -> int:
         try:
